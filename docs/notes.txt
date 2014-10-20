@@ -1,0 +1,90 @@
+Hey guys,
+
+In looking at the specs for the neopixels, it looks like it's possible to have multiple separate strips on different output pins of the arduino.  Maybe you said this already, Jake, but I'm thinking we should use the existing LED output pins of the arbduino board for this, unless there are other digital IO pins exposed on the board. Is there a circuit diagram of the board that I can take a look at?
+
+What are the various components needing code mods, and what are the current repositories for each?
+
+Here's what I'm aware of so far:
+
+1. storage silo -> https://github.com/RockTheBike/split_rail_48v_4level ?
+2. 50v inverter -> https://github.com/RockTheBike/split_rail_48v_4level ?
+3. 5 input smart jboxes -> https://github.com/RockTheBike/sLEDgehammer_tower ? 
+
+T
+
+Hi Thomas,
+
+yes it's easy to run multiple strips on different output pins.  We will have pins 3-13 available for that if we use pin 2 for a safety resistor (a good idea and easy)
+
+i could send you the schematic but i would have to go get it off the computer, and i find it easier to just look at the board:
+
+http://spaz.org/~jake/pix/arbduino.png
+
+but it's easy to describe in case it's hard to see:
+
+"arduino" pins 0 and 1 are the serial in/out and we don't use them for anything else, they just go to the 6pin header.
+
+pins 2-13 go to transistors on the board, all the same.  Pin 13 also goes to an LED.  Pins 9 and 10 also go to an IXDD604PI chip which is a MOSFET driver, for operating large banks of MOSFETs like a buck converter.
+All these parts are optional.
+
+Analog inputs are as follows:
+A0 is a voltage divider by R3 and R4 of the plusrail of system voltage
+A1 is a voltage divider by R1 and R2 of the minusrail of voltage
+(R2 can be installed two ways, depending whether minusrail is negative)
+A2 is the output of IC3, current sensor between MINUSRAIL and MINUSOUT
+A3 is the output of IC2, current sensor between PLUSOUT and PLUSRAIL
+A4 and A5 go to holes of a 3-pin header next to C11 for general use.
+
+did i miss anything?
+
+i'll take a look at the repositories you asked about in a seperate email.
+
+-jake
+
+Is that an Atmega 328P?  Which board type do you use in the Arduino IDE to program it?  Do you have any existing code that uses neopixels?
+
+T 
+
+Which density of neo-pixel strip are we using (30/60/144 LEDs/m)? Who's building the handlebar displays?  In order to code the two columns, one for instant power, the other for total energy for the current rider, I'll need to know the number of LEDs in each column. They will be coded as one strip, with the instant power first, and the second column will be upside down to minimize wire lengths between strips.
+
+T 
+
+
+yes the board uses a regular 328P with the Adafruit 0-delay bootloader (which does not come with the stock arduino installation)
+
+the computers at RTB, as well as mine and paul's laptops, have the bootloader, known as ATmegaBOOT_xx8_adaboot328.hex
+
+here is a branch that includes neopixel support:
+
+https://github.com/RockTheBike/single_rail_with_wattnow/blob/ppp/single_rail_with_wattnow.ino 
+
+
+*****
+
+
+as promised, here is the code for the five digit flip sign:
+
+https://github.com/RockTheBike/RockTheBike/tree/master/fivedigitsign
+
+it is capable of displaying up to 9999 or PEDAL or CHILL
+
+of course, the leftmost digit could be P or C with numbers on the right four digits, that's fine.  So if we can do "power" and "cumulative" or something like that, it would be easy.
+
+there are only so many pins on an arduino, and it was a stretch to get this many things to happen.  So P and C are HARD WIRED.
+
+I could make a change to make it P and E instead of P and C, no big deal, if you want it to be "power" and "energy" but the software is the same.
+
+there a pin called PEDAL_PIN and a pin called PEDAL_PIN2 which i think are wired in parallel, since they're analog pins and very weak.. it wasn't working with just one.  Anyway you can see that they're set the same, at the same time.  They activate the P on the leftmost digit.
+
+There's another pin called CHILL_PIN which activates the C on the leftmost digit.
+
+what you want to do is modify checkSerial() to accept another letter instead of 'w' such as 'p' and then activate the P or C letters depending on which type of data was last received.
+
+I believe this is the code in the Dance With Lance box:
+https://github.com/RockTheBike/RockTheBike/tree/master/DanceWithLanceArbduino_w_Sign
+
+the latest commit (adding checkserial.ino) was for reading serial INTO the arbduino from another box - so that it could output to the sign the sum of wattage from itself and another utility box.  This was never tested.
+
+please let me know if you have any questions.
+
+-jake 

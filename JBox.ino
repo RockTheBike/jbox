@@ -8,7 +8,7 @@
 #define ENABLE_PROTECT 0
 #define ENABLE_INDICATORS 1
 #define ENABLE_SENSE 1
-#define DEBUG 1
+#define DEBUG 0
 
 #if ENABLE_INDICATORS
 #include <Adafruit_NeoPixel.h>
@@ -28,7 +28,7 @@
 #if ENABLE_SENSE
 #define PIN_VOLTS A0
 
-#define PIN_AMPS { A1, A2, A3, A4, A5 }
+#define PIN_AMPS { A4, A1, A3, A2, A5 }
 #define SENSOR_TYPES { 50, 50, 50, 50, 50 }
 //#define OFFSETS { -24, -24, -24, -24, -24 }
 #endif
@@ -41,8 +41,8 @@
 #endif
 
 #if ENABLE_INDICATORS
-#define PIN_LEDS {3, 4, 5, 6, 7}
-#define IND_NUM_LEDS 12 // number LEDs per column (2 columns: 1 for power, 1 for energy)
+#define PIN_PIXELS {3, 4, 5, 6, 7}
+#define NUM_PIXELS 14 // number LEDs per column (2 columns: 1 for power, 1 for energy)
 #define IND_INTERVAL 500
 #define IND_BLINK_INTERVAL 300
 #define IND_VOLT_LOW -1
@@ -99,7 +99,7 @@ unsigned long lastProtect = 0;
 #endif
 
 #if ENABLE_INDICATORS
-int pinLEDs[] = PIN_LEDS;
+int pinLEDs[] = PIN_PIXELS;
 unsigned long lastIndicatorTime = 0;
 unsigned long lastIndicatorBlinkTime = 0;
 int indState = STATE_RAMP;
@@ -123,18 +123,6 @@ Adafruit_NeoPixel strips[NUM_AMP_SENSORS] = {
 		Adafruit_NeoPixel(12, 6, NEO_GRB + NEO_KHZ800),
 		Adafruit_NeoPixel(12, 7, NEO_GRB + NEO_KHZ800)
 };
-
-//Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(12, 3, NEO_GRB + NEO_KHZ800);
-//Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(12, 4, NEO_GRB + NEO_KHZ800);
-//Adafruit_NeoPixel strip3 = Adafruit_NeoPixel(12, 5, NEO_GRB + NEO_KHZ800);
-//Adafruit_NeoPixel strip4 = Adafruit_NeoPixel(12, 6, NEO_GRB + NEO_KHZ800);
-//Adafruit_NeoPixel strip5 = Adafruit_NeoPixel(12, 7, NEO_GRB + NEO_KHZ800);
-//
-//Adafruit_NeoPixel strips[5] = { strip1, strip2, strip3, strip4, strip5 };
-
-//Adafruit_NeoPixel* stripz[NUM_AMP_SENSORS] = { &strip1, &strip2, &strip3, &strip4, &strip5 };
-
-//Adafruit_NeoPixel strips[5] = { strip1, strip2, strip3, strip4, strip5 };
 
 
 #endif
@@ -161,10 +149,8 @@ void setup() {
 
 #if ENABLE_INDICATORS
 	for (int i = 0; i < NUM_AMP_SENSORS; i++) {
-		//pinMode(pinLEDs[i], OUTPUT);
-//		stripz[i]->begin();
-//		stripz[i]->show(); // Initialize all pixels to 'off'
 		strips[i].begin();
+		//setStrip(strips[i], 0,0,0);
 		strips[i].show(); // Initialize all pixels to 'off'
 	}
 #endif
@@ -177,15 +163,16 @@ void setup() {
 // The colours are a transition r - g - b - back to r.
 uint32_t Wheel(Adafruit_NeoPixel strip, byte WheelPos) {
 	if (WheelPos < 85) {
-		return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+		return strip.Color(255 - WheelPos * 3, WheelPos * 3, 0);
 	} else if (WheelPos < 170) {
 		WheelPos -= 85;
-		return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+		return strip.Color(0, 255 - WheelPos * 3, WheelPos * 3);
 	} else {
 		WheelPos -= 170;
-		return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+		return strip.Color(WheelPos * 3, 0, 255 - WheelPos * 3);
 	}
 }
+
 // Fill the dots one after the other with a color
 void colorWipe(Adafruit_NeoPixel strip, uint32_t c, uint8_t wait) {
 	for (uint16_t i = 0; i < strip.numPixels(); i++) {
@@ -217,16 +204,13 @@ void rainbowCycle(Adafruit_NeoPixel strip, uint8_t wait) {
 	}
 }
 
-
-int blinkCount = 0;
-
 void setStrip(Adafruit_NeoPixel strip, uint8_t r, uint8_t g, uint8_t b){
 	for (uint16_t i = 0; i < strip.numPixels(); i++) {
 		strip.setPixelColor(i, r, g, b);
-		//delay(wait);
 	}
 	strip.show();
 }
+
 
 void setPixel(Adafruit_NeoPixel strip, uint16_t pixel, uint32_t c){
 	strip.setPixelColor(pixel, c);
@@ -252,7 +236,7 @@ void doIndBlink(){
 //		//Serial.print(" ");
 //		Serial.println(blinkCount++);
 
-		uint16_t j = IND_NUM_LEDS;
+		uint16_t j = NUM_PIXELS;
 		int i = NUM_AMP_SENSORS;
 
 		// turn all pixels off:
@@ -276,7 +260,7 @@ void doIndBlink(){
 void doIndRamp(uint8_t s){
 
     float temp = 0.0;
-    //Serial.println(temp);
+
     if(watts[s] > 3){
     	temp = log(watts[s]);
     	// TODO maybe change algorithm for kids here
@@ -311,29 +295,22 @@ void doIndRamp(uint8_t s){
 #endif
 
 
-    for(int i = 0; i < IND_NUM_LEDS; i++){
+    for(int i = 0; i < NUM_PIXELS; i++){
     	if(i <= itemp){
             strips[s].setPixelColor(i, color);
-//            if (i == itemp) // if we're at the partially lit LED, light it less
-//				strips[s].setBrightness(remainder);
-//            else
-//				strips[s].setBrightness(255); // otherwise, light it up all the way
     	} else {
     		strips[s].setPixelColor(i, 0,0,0); // set others dark
     	}
     }
 
-    // no need to show strip as doIndicators() will handle it
     strips[s].show();
 }
 
 void showStrips(){
 
 	for(int i = 0; i < NUM_AMP_SENSORS; i++){
-//		stripz[i]->show();
 		strips[i].show();
 	}
-	//delay(5);
 }
 
 void doIndicators(){
@@ -349,44 +326,14 @@ void doIndicators(){
 	}
 #endif
 
-//#if ENABLE_PROTECT
-//		if(isProtected){
-//			indState = STATE_BLINK_HIGH;
-//		}
-//#endif
-//		for(int i = NUM_AMP_SENSORS; i > 0; --i){
-//		if(watts[i] < IND_RESET_MINIMUM){
-//			indStates[i] = STATE_OFF;
-//		}
-//	}
-
 	if(indState == STATE_BLINK_HIGH){
 		doIndBlink();
 	} else {
 		for(int i = 0; i < NUM_AMP_SENSORS; i++){
-			//if(indStates[i] == STATE_RAMP){
-				doIndRamp(i);
-				//doIndChase(i);
-			//}
-//			else if(indStates[i] == STATE_TIMEOUT){
-//				doTimeout(i);
-//			}
+			doIndRamp(i);
 		}
 	}
 
-	// Some example procedures showing how to display to the pixels:
-//	colorWipe(strips[0], strips[0].Color(255, 105, 0), 5); // Orange
-//	colorWipe(strips[1], strips[0].Color(255, 255, 0), 5); // Yellow
-//	colorWipe(strips[2], strips[0].Color(0, 255, 0), 5); // Green
-//	colorWipe(strips[3], strips[0].Color(0, 0, 255), 5); // Blue
-//	colorWipe(strips[4], strips[0].Color(80, 0, 80), 5); // Violet
-//		colorWipe(strips[0], strips[0].Color(255, 0, 0), 5); // Orange
-//		colorWipe(strips[1], strips[0].Color(255, 0, 0), 5); // Yellow
-//		colorWipe(strips[2], strips[0].Color(255, 0, 0), 5); // Green
-//		colorWipe(strips[3], strips[0].Color(255, 0, 0), 5); // Blue
-//		colorWipe(strips[4], strips[0].Color(255, 0, 0), 5); // Violet
-
-	//showStrips();
 }
 
 #endif // END ENABLE_INDICATORS
@@ -444,8 +391,8 @@ float adc2pinvolts(float adc){
 	return adc * 0.0048828125;
 }
 
-float adc2amps(float adc, int sensorType){
-	return (adc - AMPOFFSET) * (sensorType == 100 ? 0.244379276637341 : 0.1220703125);
+float adc2amps(int adc, int sensorType){
+	return ((float)adc - AMPOFFSET) * (sensorType == 100 ? 0.244379276637341 : 0.1220703125);
 }
 
 float amps2adc(float amps, int sensorType){
@@ -467,7 +414,7 @@ void doEnergy(){
 	for(int i = 0; i < 3; i++){
 		voltAdc = analogRead(PIN_VOLTS);
 		temp = adc2volts((float)voltAdc);
-		volts = averageF(volts, temp);
+		volts = averageF(temp, volts);
 	}
 
 	float timeDiff = time - lastEnergy;
@@ -487,7 +434,7 @@ void doEnergy(){
 			if(tempI > 505 && tempI < 516)
 				tempI = 511;
 			temp = - adc2amps(tempI, sensorType[i]);
-			amps[i] = averageF(amps[i], temp);
+			amps[i] = averageF(temp, amps[i]);
 		}
 
 		//calc watts and energy
@@ -532,7 +479,7 @@ void doDisplay(){
 
 	for(int i = 0; i < NUM_AMP_SENSORS; i++){
 		Serial.print(", ");
-		Serial.print(i + 1);
+		Serial.print(i);
 		Serial.print(": ");
 		if(enableRawMode)
 			Serial.print(ampsRaw[i]);
@@ -630,7 +577,6 @@ void loop() {
 #endif
 
 #if ENABLE_INDICATORS
-
 	if(time - lastIndicatorTime > IND_INTERVAL){
 		lastIndicatorTime = time;
 		doIndicators();

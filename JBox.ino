@@ -261,7 +261,7 @@ void doIndRamp(uint8_t s){
 
     float temp = 0.0;
 
-    if(watts[s] > 3){
+    if(watts[s] > 3){ // TODO change to a gentler slope than a natural log
     	temp = log(watts[s]);
     	// TODO maybe change algorithm for kids here
 //    	if(watts[s] < 30)

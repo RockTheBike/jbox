@@ -277,21 +277,23 @@ void doIndRamp(uint8_t s){
     long remainder = (long)((temp - (long)temp) * 255.0); // get the remainder to light the next LED less
 
 #if DEBUG
-	if (s == 0) Serial.println(""); // newline once per report of all five ramps
-	Serial.print("ramp ");
-	Serial.print(s);
-	Serial.print(" indState: ");
-	Serial.print(indState);
-	Serial.print(" temp: ");
-	Serial.print(temp);
-    Serial.print(", hue: ");
-	Serial.print(hue);
-    Serial.print(", color: ");
-	Serial.print(color);
-    Serial.print(", itemp: ");
-	Serial.print(itemp);
-    Serial.print(", remainder: ");
-	Serial.print(remainder);
+    if (!enableAutoDisplay) { // turn off when enabling autoDisplay
+      if (s == 0) Serial.println(""); // newline once per report of all five ramps
+      Serial.print(" ra");
+      Serial.print(s);
+      Serial.print(" in");
+      Serial.print(indState);
+      Serial.print(" te");
+      Serial.print(temp);
+      Serial.print(" hu");
+      Serial.print(hue);
+      Serial.print(" co");
+      Serial.print(color,HEX);
+      Serial.print(" it");
+      Serial.print(itemp);
+      Serial.print(" re");
+      Serial.print(remainder);
+    }
 #endif
 
 

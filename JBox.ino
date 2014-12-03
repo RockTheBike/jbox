@@ -413,7 +413,7 @@ void doEnergy(){
 	totalWatts = 0;
 
 	//measure volts
-	for(int i = 0; i < 3; i++){
+	for(int i = 0; i < NUM_AMP_SENSORS; i++){
 		voltAdc = analogRead(PIN_VOLTS);
 		temp = adc2volts((float)voltAdc);
 		volts = averageF(temp, volts);
@@ -429,7 +429,7 @@ void doEnergy(){
 	// measure amps and calc energy
 	for(i = 0; i < NUM_AMP_SENSORS; i++){
 
-		for(int i = 0; i < 3; i++){
+		for(int i = 0; i < NUM_AMP_SENSORS; i++){
 			ampsRaw[i] = analogRead(pinAmps[i]);
 			//tempI = ampsRaw[i] + sensorOffset[i];
 			tempI = ampsRaw[i];

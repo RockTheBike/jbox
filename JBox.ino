@@ -8,7 +8,7 @@
 #define ENABLE_PROTECT 0
 #define ENABLE_INDICATORS 1
 #define ENABLE_SENSE 1
-#define DEBUG 0
+#define DEBUG 1
 
 #if ENABLE_INDICATORS
 #include <Adafruit_NeoPixel.h>
@@ -133,7 +133,7 @@ Adafruit_NeoPixel strips[NUM_AMP_SENSORS] = {
 //The setup function is called once at startup of the sketch
 void setup() {
 
-	Serial.begin(115200);
+	Serial.begin(57600);
 
 #if ENABLE_SENSE
 	pinMode(PIN_LED, OUTPUT);
@@ -277,6 +277,7 @@ void doIndRamp(uint8_t s){
     long remainder = (long)((temp - (long)temp) * 255.0); // get the remainder to light the next LED less
 
 #if DEBUG
+	if (s == 0) Serial.println(""); // newline once per report of all five ramps
 	Serial.print("ramp ");
 	Serial.print(s);
 	Serial.print(" indState: ");
@@ -291,7 +292,6 @@ void doIndRamp(uint8_t s){
 	Serial.print(itemp);
     Serial.print(", remainder: ");
 	Serial.print(remainder);
-	Serial.println("");
 #endif
 
 

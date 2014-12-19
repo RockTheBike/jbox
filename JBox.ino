@@ -161,7 +161,7 @@ void setup() {
 
 // Input a value 0 to 255 to get a color value.
 // The colours are a transition r - g - b - back to r.
-uint32_t Wheel(Adafruit_NeoPixel strip, byte WheelPos) {
+uint32_t Wheel(const Adafruit_NeoPixel& strip, byte WheelPos) {
 	if (WheelPos < 85) {
 		return strip.Color(255 - WheelPos * 3, WheelPos * 3, 0);
 	} else if (WheelPos < 170) {
@@ -174,14 +174,14 @@ uint32_t Wheel(Adafruit_NeoPixel strip, byte WheelPos) {
 }
 
 // Fill the dots one after the other with a color
-void colorWipe(Adafruit_NeoPixel strip, uint32_t c, uint8_t wait) {
+void colorWipe(const Adafruit_NeoPixel& strip, uint32_t c, uint8_t wait) {
 	for (uint16_t i = 0; i < strip.numPixels(); i++) {
 		strip.setPixelColor(i, c);
 		//delay(wait);
 	}
 	strip.show();
 }
-void rainbow(Adafruit_NeoPixel strip, uint8_t wait) {
+void rainbow(const Adafruit_NeoPixel& strip, uint8_t wait) {
 	uint16_t i, j;
 	for (j = 0; j < 256; j++) {
 		for (i = 0; i < strip.numPixels(); i++) {
@@ -192,7 +192,7 @@ void rainbow(Adafruit_NeoPixel strip, uint8_t wait) {
 	}
 }
 // Slightly different, this makes the rainbow equally distributed throughout
-void rainbowCycle(Adafruit_NeoPixel strip, uint8_t wait) {
+void rainbowCycle(const Adafruit_NeoPixel& strip, uint8_t wait) {
 	uint16_t i, j;
 	for (j = 0; j < 256 * 5; j++) { // 5 cycles of all colors on wheel
 		for (i = 0; i < strip.numPixels(); i++) {
@@ -204,7 +204,7 @@ void rainbowCycle(Adafruit_NeoPixel strip, uint8_t wait) {
 	}
 }
 
-void setStrip(Adafruit_NeoPixel strip, uint8_t r, uint8_t g, uint8_t b){
+void setStrip(const Adafruit_NeoPixel& strip, uint8_t r, uint8_t g, uint8_t b){
 	for (uint16_t i = 0; i < strip.numPixels(); i++) {
 		strip.setPixelColor(i, r, g, b);
 	}
@@ -212,7 +212,7 @@ void setStrip(Adafruit_NeoPixel strip, uint8_t r, uint8_t g, uint8_t b){
 }
 
 
-void setPixel(Adafruit_NeoPixel strip, uint16_t pixel, uint32_t c){
+void setPixel(const Adafruit_NeoPixel& strip, uint16_t pixel, uint32_t c){
 	strip.setPixelColor(pixel, c);
 	//strip.show();
 }

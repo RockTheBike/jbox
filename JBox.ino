@@ -116,11 +116,11 @@ uint32_t indColor[NUM_AMP_SENSORS] = {0};
 // NEO_KHZ800 800 KHz bitstream (e.g. High Density LED strip)
 
 Adafruit_NeoPixel strips[NUM_AMP_SENSORS] = {
-		Adafruit_NeoPixel(12, 3, NEO_GRB + NEO_KHZ800),
-		Adafruit_NeoPixel(12, 4, NEO_GRB + NEO_KHZ800),
-		Adafruit_NeoPixel(12, 5, NEO_GRB + NEO_KHZ800),
-		Adafruit_NeoPixel(12, 6, NEO_GRB + NEO_KHZ800),
-		Adafruit_NeoPixel(12, 7, NEO_GRB + NEO_KHZ800)
+		Adafruit_NeoPixel(NUM_PIXELS, 3, NEO_GRB + NEO_KHZ800),
+		Adafruit_NeoPixel(NUM_PIXELS, 4, NEO_GRB + NEO_KHZ800),
+		Adafruit_NeoPixel(NUM_PIXELS, 5, NEO_GRB + NEO_KHZ800),
+		Adafruit_NeoPixel(NUM_PIXELS, 6, NEO_GRB + NEO_KHZ800),
+		Adafruit_NeoPixel(NUM_PIXELS, 7, NEO_GRB + NEO_KHZ800)
 };
 
 
@@ -376,7 +376,7 @@ void doEnergy(){
 void resetEnergy(int input){
 	// if input == -1, reset all
 	if(input == -1){
-		for(int i = NUM_AMP_SENSORS; i > 0; --i){
+		for(int i=0; i<NUM_AMP_SENSORS; i--){
 			energy[i] = 0;
 		}
 	} else { // otherwise, just reset the one input

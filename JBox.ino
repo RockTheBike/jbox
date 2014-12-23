@@ -65,7 +65,6 @@ int sensorType[] = SENSOR_TYPES;
 //int sensorOffset[NUM_AMP_SENSORS] = OFFSETS;
 
 unsigned int voltAdc = 0;
-float voltAdcAvg = 0;
 float volts = 0.0;
 
 int ampsRaw[NUM_AMP_SENSORS] = { 0 };
@@ -173,37 +172,6 @@ uint32_t Wheel(const Adafruit_NeoPixel& strip, byte WheelPos) {
 	}
 }
 
-// Fill the dots one after the other with a color
-void colorWipe(Adafruit_NeoPixel& strip, uint32_t c, uint8_t wait) {
-	for (uint16_t i = 0; i < strip.numPixels(); i++) {
-		strip.setPixelColor(i, c);
-		//delay(wait);
-	}
-	strip.show();
-}
-void rainbow(Adafruit_NeoPixel& strip, uint8_t wait) {
-	uint16_t i, j;
-	for (j = 0; j < 256; j++) {
-		for (i = 0; i < strip.numPixels(); i++) {
-			strip.setPixelColor(i, Wheel(strip, (i + j) & 255));
-		}
-		strip.show();
-		delay(wait);
-	}
-}
-// Slightly different, this makes the rainbow equally distributed throughout
-void rainbowCycle(Adafruit_NeoPixel& strip, uint8_t wait) {
-	uint16_t i, j;
-	for (j = 0; j < 256 * 5; j++) { // 5 cycles of all colors on wheel
-		for (i = 0; i < strip.numPixels(); i++) {
-			strip.setPixelColor(i,
-					Wheel(strip, ((i * 256 / strip.numPixels()) + j) & 255));
-		}
-		strip.show();
-		delay(wait);
-	}
-}
-
 void setStrip(Adafruit_NeoPixel& strip, uint8_t r, uint8_t g, uint8_t b){
 	for (uint16_t i = 0; i < strip.numPixels(); i++) {
 		strip.setPixelColor(i, r, g, b);
@@ -212,17 +180,9 @@ void setStrip(Adafruit_NeoPixel& strip, uint8_t r, uint8_t g, uint8_t b){
 }
 
 
-void setPixel(Adafruit_NeoPixel& strip, uint16_t pixel, uint32_t c){
-	strip.setPixelColor(pixel, c);
-	//strip.show();
-}
-
 void setAll(int r, int g, int b) {
-	setStrip(strips[0], r, g, b);
-	setStrip(strips[1], r, g, b);
-	setStrip(strips[2], r, g, b);
-	setStrip(strips[3], r, g, b);
-	setStrip(strips[4], r, g, b);
+	for( int i=0; i<NUM_AMP_SENSORS; i++ )
+		setStrip(strips[i], r, g, b);
 }
 
 void doIndBlink(){
@@ -235,9 +195,6 @@ void doIndBlink(){
 //		//Serial.print(indState);
 //		//Serial.print(" ");
 //		Serial.println(blinkCount++);
-
-		uint16_t j = NUM_PIXELS;
-		int i = NUM_AMP_SENSORS;
 
 		// turn all pixels off:
 		if(!indBlinkState){
@@ -259,14 +216,10 @@ void doIndBlink(){
 
 void doIndRamp(uint8_t s){
 
-    float temp = 0.0;
-
-    if(watts[s] > 3){ // TODO change to a gentler slope than a natural log
-    	temp = log(watts[s]);
-    	// TODO maybe change algorithm for kids here
-//    	if(watts[s] < 30)
-//    		temp = temp / 2;
-    }
+    // TODO change to a gentler slope than a natural log
+    // power logarithmically (hopefully) scaled in 0<=temp<7 as float
+    float temp = watts[s] < 3 ? 0.0 : log(watts[s]);
+    // TODO maybe change algorithm for kids here
 
     unsigned char hue = (temp / 7.0) * 170.0;
     if(hue < 1) hue = 1;
@@ -308,13 +261,6 @@ void doIndRamp(uint8_t s){
     strips[s].show();
 }
 
-void showStrips(){
-
-	for(int i = 0; i < NUM_AMP_SENSORS; i++){
-		strips[i].show();
-	}
-}
-
 void doIndicators(){
 
 #if ENABLE_SENSE
@@ -343,13 +289,8 @@ void doIndicators(){
 #if ENABLE_PROTECT
 
 void setProtect(boolean protect){
-	if(protect){
-		digitalWrite(PIN_PROTECT, HIGH);
-		isProtected = true;
-	} else {
-		digitalWrite(PIN_PROTECT, LOW);
-		isProtected = false;
-	}
+	digitalWrite(PIN_PROTECT, protect ? HIGH : LOW);
+	isProtected = protect;
 }
 
 void doProtect(){
@@ -372,18 +313,6 @@ float averageF(float val, float avg){
 	return (val + (avg * (AVG_CYCLES - 1))) / AVG_CYCLES;
 }
 
-// faster than floats; values can be multiplied by 10 to get 0.1 accuracy
-long averageI(int val, int avg){
-	if(avg == 0){
-		avg = val;
-	}
-	return (val + (avg * (AVG_CYCLES - 1))) / AVG_CYCLES;
-}
-
-int volts2adc(float v){
-	return (int)(v * VOLTCOEFF);
-}
-
 float adc2volts(float adc){
 	return adc / VOLTCOEFF;
 }
@@ -395,11 +324,6 @@ float adc2pinvolts(float adc){
 
 float adc2amps(int adc, int sensorType){
 	return ((float)adc - AMPOFFSET) * (sensorType == 100 ? 0.244379276637341 : 0.1220703125);
-}
-
-float amps2adc(float amps, int sensorType){
-	// adc/A = 8.192 adc/A
-	return AMPOFFSET + amps * (sensorType == 100 ? 4.092 : 8.192);
 }
 
 
@@ -421,10 +345,6 @@ void doEnergy(){
 
 	float timeDiff = time - lastEnergy;
 	float timeDiffSecs = timeDiff / 1000.0;
-
-#if DEBUG
-	//volts = 30.0;
-#endif
 
 	// measure amps and calc energy
 	for(i = 0; i < NUM_AMP_SENSORS; i++){
@@ -450,11 +370,6 @@ void doEnergy(){
 	}
 	lastEnergy = time;
 
-#if DEBUG
-	//watts[0] = 50.0;
-	//watts[1] = 100.0;
-#endif
-
 }
 
 
@@ -464,7 +379,6 @@ void resetEnergy(int input){
 		for(int i = NUM_AMP_SENSORS; i > 0; --i){
 			energy[i] = 0;
 		}
-		//totalEnergy = 0;
 	} else { // otherwise, just reset the one input
 		energy[input] = 0;
 	}
@@ -498,7 +412,6 @@ void doDisplay(){
 		Serial.print(", PROTECT: ON");
 #endif
 	Serial.println("}");
-	//resetEnergy();
 }
 
 void doSerial(int in){

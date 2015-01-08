@@ -29,8 +29,8 @@
 #define PIN_VOLTS A0
 
 #define PIN_AMPS { A4, A1, A3, A2, A5 }
-#define SENSOR_TYPES { 50, 50, 50, 50, 50 }
-//#define OFFSETS { -24, -24, -24, -24, -24 }
+#define OFFSETS { -4, -4, -5, -4, -5 }
+#define NOISYZERO 0.2  // assume any smaller measurement should be 0
 #endif
 
 #if ENABLE_PROTECT
@@ -42,7 +42,9 @@
 
 #if ENABLE_INDICATORS
 #define PIN_PIXELS {3, 4, 5, 6, 7}
-#define NUM_PIXELS 14 // number LEDs per column (2 columns: 1 for power, 1 for energy)
+#define NUM_POWER_PIXELS 7  // number LEDs for power
+#define NUM_ENERGY_PIXELS 7  // number LEDs for energy
+#define NUM_PIXELS (NUM_POWER_PIXELS+NUM_ENERGY_PIXELS)  // number LEDs per bike
 #define IND_INTERVAL 500
 #define IND_BLINK_INTERVAL 300
 #define IND_VOLT_LOW -1
@@ -61,8 +63,7 @@
 
 #if ENABLE_SENSE
 int pinAmps[] = PIN_AMPS;
-int sensorType[] = SENSOR_TYPES;
-//int sensorOffset[NUM_AMP_SENSORS] = OFFSETS;
+int sensorOffset[NUM_AMP_SENSORS] = OFFSETS;
 
 unsigned int voltAdc = 0;
 float volts = 0.0;
@@ -90,7 +91,7 @@ boolean blinkState = false;  // indicators
 boolean fastBlinkState = false;  // indicators
 unsigned long sampleCount = 0;
 boolean enableRawMode = false;
-boolean enableAutoDisplay = false;
+boolean enableAutoDisplay = true;
 
 #if ENABLE_PROTECT
 boolean isProtected = false;
@@ -133,6 +134,7 @@ Adafruit_NeoPixel strips[NUM_AMP_SENSORS] = {
 void setup() {
 
 	Serial.begin(57600);
+	Serial.println(VERSION);
 
 #if ENABLE_SENSE
 	pinMode(PIN_LED, OUTPUT);
@@ -216,42 +218,53 @@ void doIndBlink(){
 
 void doIndRamp(uint8_t s){
 
-    // TODO change to a gentler slope than a natural log
-    // power logarithmically (hopefully) scaled in 0<=temp<7 as float
-    float temp = watts[s] < 3 ? 0.0 : log(watts[s]);
+    float ledstolightf = logPowerRamp(watts[s]);
+    if( ledstolightf > NUM_POWER_PIXELS ) ledstolightf=NUM_POWER_PIXELS;
     // TODO maybe change algorithm for kids here
 
-    unsigned char hue = (temp / 7.0) * 170.0;
+    unsigned char hue = ledstolightf/NUM_POWER_PIXELS * 170.0;
     if(hue < 1) hue = 1;
 
     uint32_t color = Wheel(strips[s], hue);
 
-    long itemp = (long)temp; // turn log(watts) into the LED index
-    long remainder = (long)((temp - (long)temp) * 255.0); // get the remainder to light the next LED less
+    long ledstolight = (long)ledstolightf; // turn log(watts) into the LED index
+    long remainder = (long)(floor(ledstolightf) * 255.0); // get the remainder to light the next LED less
 
 #if DEBUG
     if (!enableAutoDisplay) { // turn off when enabling autoDisplay
       if (s == 0) Serial.println(""); // newline once per report of all five ramps
-      Serial.print(" ra");
+      char buf[80];
+#if 1
+      // keep a constant width (and fake floating point)
+      sprintf( buf, "  RA%d in%d wa%3d te%d.%02d hu%03d", s, indState, (int)watts[s], (int)ledstolight,(int)((ledstolightf-ledstolight)*100), hue );
+      Serial.print(buf);
+      sprintf( buf, "= ra%d in%d te", s, indState );
+      Serial.print(buf);
+      Serial.print(ledstolightf);
+      sprintf( buf, " hu%03d", hue );
+      Serial.println(buf);
+#else
+      Serial.print("  ra");  // rail
       Serial.print(s);
-      Serial.print(" in");
+      Serial.print(" in");  // eg blinking
       Serial.print(indState);
-      Serial.print(" te");
-      Serial.print(temp);
-      Serial.print(" hu");
-      Serial.print(hue);
-      Serial.print(" co");
-      Serial.print(color,HEX);
-      Serial.print(" it");
-      Serial.print(itemp);
-      Serial.print(" re");
-      Serial.print(remainder);
+      Serial.print(" te");  // log of power (hopefully) scaled to 0-7 as float
+      Serial.print(ledstolightf);
+      Serial.print(" hu");  // hue
+      Serial.print(hue,3);
+      //Serial.print(" co");  // color
+      //Serial.print(color,HEX);
+      //Serial.print(" it");  // log of power (hopefully) scaled to 0-7 as int
+      //Serial.print(ledstolight);
+      //Serial.print(" re");
+      //Serial.print(remainder);
+#endif
     }
 #endif
 
 
     for(int i = 0; i < NUM_PIXELS; i++){
-    	if(i <= itemp){
+    	if(i <= ledstolight){
             strips[s].setPixelColor(i, color);
     	} else {
     		strips[s].setPixelColor(i, 0,0,0); // set others dark
@@ -259,6 +272,34 @@ void doIndRamp(uint8_t s){
     }
 
     strips[s].show();
+}
+
+float logPowerRamp( float p ) {
+	/*
+	We want an equation of the form:  l = A * log(p-B) - C
+	  where l is number of LEDs to light and p is power
+	We want ideal data points:
+	p = 20W   => l = 0LEDs
+	p = 1000W => l = 7LEDs = NUM_POWER_PIXELS
+	p = 100W  => l = 3.5LEDs = NUM_POWER_PIXELS/2
+	Finding a closed form would be nice but is too tough for me...
+	(Can you give me the C expressions?  Or teach me how to find them?)
+
+	So let's just twiddle constants until R draws a nice graph:
+	p<-c(20,1000,100); l<-c(0,7,3.5)
+	logPowerRamp <- function(p) A*log(p-B)-C
+	xmax<-1000; ymax<-8
+	pl<-function() {
+		plot( logPowerRamp, xlim=c(0,xmax), ylim=c(0,ymax) );
+		par(new=TRUE);
+		plot( x=p,y=l, xlim=c(0,xmax), ylim=c(0,ymax) );
+	}
+	A<-1.44; B<-12.5; C<-2.9
+	pl()
+	logPowerRamp(p)  # 0.00146035 7.02905416 3.53915986
+	*/
+	float l = 1.44 * log(p-12.5) - 2.9;
+	return l<0 ? 0 : l;
 }
 
 void doIndicators(){
@@ -322,8 +363,8 @@ float adc2pinvolts(float adc){
 	return adc * 0.0048828125;
 }
 
-float adc2amps(int adc, int sensorType){
-	return ((float)adc - AMPOFFSET) * (sensorType == 100 ? 0.244379276637341 : 0.1220703125);
+float adc2amps(int adc, int sensorOffset=0){
+	return - (adc - sensorOffset - AMPOFFSET) / AMPCOEFF;
 }
 
 
@@ -331,7 +372,6 @@ void doEnergy(){
 	sampleCount++;
 
 	float temp = 0.0;
-	int tempI = 0;
 	int i = 0;
 	int j = 0;
 	totalWatts = 0;
@@ -351,13 +391,11 @@ void doEnergy(){
 
 		for(j = 0; j < 3; j++){
 			ampsRaw[i] = analogRead(pinAmps[i]);
-			//tempI = ampsRaw[i] + sensorOffset[i];
-			tempI = ampsRaw[i];
-			if(tempI > 505 && tempI < 516)
-				tempI = 511;
-			temp = - adc2amps(tempI, sensorType[i]);
+			temp = adc2amps(ampsRaw[i], sensorOffset[i]);
 			amps[i] = averageF(temp, amps[i]);
 		}
+		// we assume anything near or below zero is a reading error
+		if( amps[i] < NOISYZERO ) amps[i] = 0;
 
 		//calc watts and energy
 		watts[i] = volts * amps[i];
@@ -396,7 +434,7 @@ void doDisplay(){
 	for(int i = 0; i < NUM_AMP_SENSORS; i++){
 		Serial.print(", ");
 		Serial.print(i);
-		Serial.print(": ");
+		Serial.print(":");
 		if(enableRawMode)
 			Serial.print(ampsRaw[i]);
 		else

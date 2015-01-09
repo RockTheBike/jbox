@@ -517,7 +517,6 @@ void loop() {
 
 #if ENABLE_SENSE
 	if(time - lastEnergy > ENERGY_INTERVAL){
-		lastEnergy = time;
 		doEnergy();
 	}
 #endif

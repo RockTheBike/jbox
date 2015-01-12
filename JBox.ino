@@ -220,29 +220,29 @@ void doIndRamp(uint8_t s){
     float ledstolightf;
     unsigned char hue;
     uint32_t color;
+    static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
 
     // the power LEDs
     ledstolightf = logPowerRamp(watts[s]);
     if( ledstolightf > NUM_POWER_PIXELS ) ledstolightf=NUM_POWER_PIXELS;
     hue = ledstolightf/NUM_POWER_PIXELS * 170.0;
     color = Wheel(strips[s], hue<1?1:hue);
-    doOneRamp(s, 0, NUM_POWER_PIXELS, (int)ledstolightf, color);
+    doOneRamp(s, 0, NUM_POWER_PIXELS, (int)ledstolightf, color, dark);
 
     // the energy LEDs
     ledstolightf = logEnergyRamp(energy[s]);
     if( ledstolightf > NUM_ENERGY_PIXELS ) ledstolightf=NUM_ENERGY_PIXELS;
     hue = ledstolightf/NUM_ENERGY_PIXELS * 170.0;
     color = Wheel(strips[s], hue<1?1:hue);
-    doOneRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS, (int)ledstolightf, color);
+    doOneRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS, NUM_ENERGY_PIXELS-(int)ledstolightf, dark, color);
 
     // and show 'em
     strips[s].show();
 }
 
-void doOneRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, uint8_t ledstolight, uint32_t color){
-	static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
+void doOneRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, uint8_t ledstolight, uint32_t firstColor, uint32_t secondColor){
 	for( int i=0,pixel=offset; i<num_pixels; i++,pixel++ ){
-		strips[s].setPixelColor(pixel, i<ledstolight ? color : dark);
+		strips[s].setPixelColor(pixel, i<ledstolight ? firstColor : secondColor);
 	}
 }
 

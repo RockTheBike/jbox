@@ -71,9 +71,9 @@ float volts = 0.0;
 int ampsRaw[NUM_AMP_SENSORS] = { 0 };
 float amps[NUM_AMP_SENSORS] = { 0.0 };
 float watts[NUM_AMP_SENSORS] = { 0.0 };
-float energy[NUM_AMP_SENSORS] = { 0.0 };
+float energy[NUM_AMP_SENSORS] = { 0.0 };  // watt secs
 float totalWatts = 0.0;
-float totalEnergy = 0.0;
+float totalEnergy = 0.0;  // watt hours
 #endif
 
 //typedef unsigned long ulong;
@@ -217,62 +217,44 @@ void doIndBlink(){
 }
 
 void doIndRamp(uint8_t s){
+    float ledstolightf;
+    unsigned char hue;
+    uint32_t color;
 
-    float ledstolightf = logPowerRamp(watts[s]);
+    // the power LEDs
+    ledstolightf = logPowerRamp(watts[s]);
     if( ledstolightf > NUM_POWER_PIXELS ) ledstolightf=NUM_POWER_PIXELS;
-    // TODO maybe change algorithm for kids here
+    hue = ledstolightf/NUM_POWER_PIXELS * 170.0;
+    color = Wheel(strips[s], hue<1?1:hue);
+    doOneRamp(s, 0, NUM_POWER_PIXELS, (int)ledstolightf, color);
 
-    unsigned char hue = ledstolightf/NUM_POWER_PIXELS * 170.0;
-    if(hue < 1) hue = 1;
+    // the energy LEDs
+    ledstolightf = logEnergyRamp(energy[s]);
+    if( ledstolightf > NUM_ENERGY_PIXELS ) ledstolightf=NUM_ENERGY_PIXELS;
+    hue = ledstolightf/NUM_ENERGY_PIXELS * 170.0;
+    color = Wheel(strips[s], hue<1?1:hue);
+    doOneRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS, (int)ledstolightf, color);
 
-    uint32_t color = Wheel(strips[s], hue);
-
-    long ledstolight = (long)ledstolightf; // turn log(watts) into the LED index
-    long remainder = (long)(floor(ledstolightf) * 255.0); // get the remainder to light the next LED less
-
-#if DEBUG
-    if (!enableAutoDisplay) { // turn off when enabling autoDisplay
-      if (s == 0) Serial.println(""); // newline once per report of all five ramps
-      char buf[80];
-#if 1
-      // keep a constant width (and fake floating point)
-      sprintf( buf, "  RA%d in%d wa%3d te%d.%02d hu%03d", s, indState, (int)watts[s], (int)ledstolight,(int)((ledstolightf-ledstolight)*100), hue );
-      Serial.print(buf);
-      sprintf( buf, "= ra%d in%d te", s, indState );
-      Serial.print(buf);
-      Serial.print(ledstolightf);
-      sprintf( buf, " hu%03d", hue );
-      Serial.println(buf);
-#else
-      Serial.print("  ra");  // rail
-      Serial.print(s);
-      Serial.print(" in");  // eg blinking
-      Serial.print(indState);
-      Serial.print(" te");  // log of power (hopefully) scaled to 0-7 as float
-      Serial.print(ledstolightf);
-      Serial.print(" hu");  // hue
-      Serial.print(hue,3);
-      //Serial.print(" co");  // color
-      //Serial.print(color,HEX);
-      //Serial.print(" it");  // log of power (hopefully) scaled to 0-7 as int
-      //Serial.print(ledstolight);
-      //Serial.print(" re");
-      //Serial.print(remainder);
-#endif
-    }
-#endif
-
-
-    for(int i = 0; i < NUM_PIXELS; i++){
-    	if(i <= ledstolight){
-            strips[s].setPixelColor(i, color);
-    	} else {
-    		strips[s].setPixelColor(i, 0,0,0); // set others dark
-    	}
-    }
-
+    // and show 'em
     strips[s].show();
 }
+
+void doOneRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, uint8_t ledstolight, uint32_t color){
+	static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
+	for( int i=0,pixel=offset; i<num_pixels; i++,pixel++ ){
+		strips[s].setPixelColor(pixel, i<ledstolight ? color : dark);
+	}
+}
+
+/* About logPowerRamp and logEnergyRamp:  I love closed form solutions:  they
+ * reliably and easily adjust in response to adjusted constants (or to swapping
+ * a constant for a variable).  But I don't know how to find a solution for the
+ * equation I picked, and I didn't even pick an equation that facilitates
+ * twiddling constants (even more so for logEnergyRamp).
+ *
+ * Maybe I should follow Nio's advice and use splines.  But not yet; let's get
+ * this ready to run now.
+ */
 
 float logPowerRamp( float p ) {
 	/*
@@ -302,6 +284,36 @@ float logPowerRamp( float p ) {
 	return l<0 ? 0 : l;
 }
 
+float logEnergyRamp( float e ) {
+	// e is energy measured in watt secs
+	/*
+	We want an equation of the form:  l = A * log(e-B) - C
+	  where l is number of LEDs to light and e is energy
+	We want ideal data points:
+	e = 0Ws  => l = 0LEDs
+	e = 60W*30m*60s/m => l = 7LEDs = NUM_ENERGY_PIXELS
+	  (ie a half-hour of relaxed pedaling ie 60W)
+	e = 60W*30s  => l = 1LEDs
+	  (give a quick response)
+	Finding a closed form would be nice but is too tough for me...
+	(Can you give me the C expressions?  Or teach me how to find them?)
+
+	So let's just twiddle constants until R draws a nice graph:
+	e<-c(0,60*30*60,60*30); l<-c(0,7,1)
+	logEnergyRamp <- function(e) A*log(e-B)-C
+	xmax<-60*30*60; ymax<-8
+	pl<-function() {
+		plot( logEnergyRamp, xlim=c(0,xmax), ylim=c(0,ymax) );
+		par(new=TRUE);
+		plot( x=e,y=l, xlim=c(0,xmax), ylim=c(0,ymax) );
+	}
+	A<-0.9; B<--300; C<-5  # a reasonable first approximation
+	pl()
+	logEnergyRamp(e)
+	*/
+	float l = 0.9 * log(e+300) - 5;
+	return l<0 ? 0 : l;
+}
 void doIndicators(){
 
 #if ENABLE_SENSE
@@ -437,8 +449,11 @@ void doDisplay(){
 		Serial.print(":");
 		if(enableRawMode)
 			Serial.print(ampsRaw[i]);
-		else
+		else {
 			Serial.print(watts[i], 0);
+			Serial.print(",");
+			Serial.print(energy[i], 0);
+		}
 	}
 	Serial.print(", TOTAL_WATTS: ");
 	Serial.print(totalWatts, 2);

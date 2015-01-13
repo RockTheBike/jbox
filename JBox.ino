@@ -50,6 +50,15 @@
 #define IND_VOLT_LOW -1
 #define IND_VOLT_HIGH 50.0
 
+uint32_t ENERGY_COLORS[] = {
+  Adafruit_NeoPixel::Color(0,0,0),
+  Adafruit_NeoPixel::Color(255,0,0),
+  Adafruit_NeoPixel::Color(0,255,0),
+  Adafruit_NeoPixel::Color(255,0,255) };
+#define NUM_ENERGY_COLORS (sizeof(ENERGY_COLORS)/sizeof(*ENERGY_COLORS))
+// a half-hour of relaxed pedaling ie 60W x 30m * 60s/m in watt seconds
+#define ENERGY_PER_SMOOTHIE (60*30*60)
+
 #define STATE_OFF 0
 #define STATE_ON 1
 #define STATE_BLINK_LOW 2
@@ -218,23 +227,25 @@ void doIndBlink(){
 
 void doIndRamp(uint8_t s){
     float ledstolightf;
-    unsigned char hue;
-    uint32_t color;
-    static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
 
     // the power LEDs
     ledstolightf = logPowerRamp(watts[s]);
     if( ledstolightf > NUM_POWER_PIXELS ) ledstolightf=NUM_POWER_PIXELS;
-    hue = ledstolightf/NUM_POWER_PIXELS * 170.0;
-    color = Wheel(strips[s], hue<1?1:hue);
+    unsigned char hue = ledstolightf/NUM_POWER_PIXELS * 170.0;
+    uint32_t color = Wheel(strips[s], hue<1?1:hue);
+    static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
     doOneRamp(s, 0, NUM_POWER_PIXELS, (int)ledstolightf, color, dark);
 
     // the energy LEDs
-    ledstolightf = logEnergyRamp(energy[s]);
+    int full_smoothies = energy[s]/ENERGY_PER_SMOOTHIE;
+    float partial_smoothie = energy[s] - full_smoothies * ENERGY_PER_SMOOTHIE;
+    ledstolightf = logEnergyRamp(partial_smoothie);
     if( ledstolightf > NUM_ENERGY_PIXELS ) ledstolightf=NUM_ENERGY_PIXELS;
-    hue = ledstolightf/NUM_ENERGY_PIXELS * 170.0;
-    color = Wheel(strips[s], hue<1?1:hue);
-    doOneRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS, NUM_ENERGY_PIXELS-(int)ledstolightf, dark, color);
+    uint32_t curcolor = ENERGY_COLORS[full_smoothies%NUM_ENERGY_COLORS];
+    uint32_t nextcolor = ENERGY_COLORS[(full_smoothies+1)%NUM_ENERGY_COLORS];
+    // the energy LEDs are upside-down, so subtract ledstolightf and swap colors
+    doOneRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS,
+      NUM_ENERGY_PIXELS-(int)ledstolightf, nextcolor, curcolor );
 
     // and show 'em
     strips[s].show();
@@ -291,8 +302,7 @@ float logEnergyRamp( float e ) {
 	  where l is number of LEDs to light and e is energy
 	We want ideal data points:
 	e = 0Ws  => l = 0LEDs
-	e = 60W*30m*60s/m => l = 7LEDs = NUM_ENERGY_PIXELS
-	  (ie a half-hour of relaxed pedaling ie 60W)
+	e = ENERGY_PER_SMOOTHIE Ws => l = 7LEDs = NUM_ENERGY_PIXELS
 	e = 60W*30s  => l = 1LEDs
 	  (give a quick response)
 	Finding a closed form would be nice but is too tough for me...

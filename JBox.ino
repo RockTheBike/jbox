@@ -226,34 +226,41 @@ void doIndBlink(){
 }
 
 void doIndRamp(uint8_t s){
-    float ledstolightf;
+	float ledstolight;
 
-    // the power LEDs
-    ledstolightf = logPowerRamp(watts[s]);
-    if( ledstolightf > NUM_POWER_PIXELS ) ledstolightf=NUM_POWER_PIXELS;
-    unsigned char hue = ledstolightf/NUM_POWER_PIXELS * 170.0;
-    uint32_t color = Wheel(strips[s], hue<1?1:hue);
-    static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
-    doOneRamp(s, 0, NUM_POWER_PIXELS, (int)ledstolightf, color, dark);
+	// the power LEDs
+	ledstolight = logPowerRamp(watts[s]);
+	if( ledstolight > NUM_POWER_PIXELS ) ledstolight=NUM_POWER_PIXELS;
+	unsigned char hue = ledstolight/NUM_POWER_PIXELS * 170.0;
+	uint32_t color = Wheel(strips[s], hue<1?1:hue);
+	static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
+	doOneRamp(s, 0, NUM_POWER_PIXELS, ledstolight, color, dark);
 
-    // the energy LEDs
-    int full_smoothies = energy[s]/ENERGY_PER_SMOOTHIE;
-    float partial_smoothie = energy[s] - full_smoothies * ENERGY_PER_SMOOTHIE;
-    ledstolightf = logEnergyRamp(partial_smoothie);
-    if( ledstolightf > NUM_ENERGY_PIXELS ) ledstolightf=NUM_ENERGY_PIXELS;
-    uint32_t curcolor = ENERGY_COLORS[full_smoothies%NUM_ENERGY_COLORS];
-    uint32_t nextcolor = ENERGY_COLORS[(full_smoothies+1)%NUM_ENERGY_COLORS];
-    // the energy LEDs are upside-down, so subtract ledstolightf and swap colors
-    doOneRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS,
-      NUM_ENERGY_PIXELS-(int)ledstolightf, nextcolor, curcolor );
+	// the energy LEDs
+	int full_smoothies = energy[s]/ENERGY_PER_SMOOTHIE;
+	float partial_smoothie = energy[s] - full_smoothies * ENERGY_PER_SMOOTHIE;
+	ledstolight = logEnergyRamp(partial_smoothie);
+	if( ledstolight > NUM_ENERGY_PIXELS ) ledstolight=NUM_ENERGY_PIXELS;
+	uint32_t curcolor = ENERGY_COLORS[full_smoothies%NUM_ENERGY_COLORS];
+	uint32_t nextcolor = ENERGY_COLORS[(full_smoothies+1)%NUM_ENERGY_COLORS];
+	// the energy LEDs are upside-down, so subtract ledstolight and swap colors
+	doOneRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS,
+	  NUM_ENERGY_PIXELS-ledstolight, nextcolor, curcolor );
 
-    // and show 'em
-    strips[s].show();
+	// and show 'em
+	strips[s].show();
 }
 
-void doOneRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, uint8_t ledstolight, uint32_t firstColor, uint32_t secondColor){
+void doOneRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, float ledstolight, uint32_t firstColor, uint32_t secondColor){
 	for( int i=0,pixel=offset; i<num_pixels; i++,pixel++ ){
-		strips[s].setPixelColor(pixel, i<ledstolight ? firstColor : secondColor);
+		uint32_t color =
+		  i<(int)ledstolight ?  // definitely firstColor
+		    firstColor :
+		  i>(int)ledstolight+1 ?  // definitely secondColor
+		    secondColor :
+		  // else mix the two proportionally
+		    weighted_average_of_colors( firstColor, secondColor, ledstolight-(int)ledstolight);
+		strips[s].setPixelColor(pixel, color);
 	}
 }
 
@@ -565,4 +572,20 @@ void loop() {
 		 doSerial(in);
 	}
 
+}
+
+// hacky utility to merge colors
+// (let's hope Adafruit_NeoPixel doesn't change its encoding of colors)
+uint32_t weighted_average_of_colors( uint32_t colorA, uint32_t colorB,
+  float fraction ){
+	uint8_t RA = (colorA>>16) & 0xff;
+	uint8_t GA = (colorA>>8 ) & 0xff;
+	uint8_t BA = (colorA>>0 ) & 0xff;
+	uint8_t RB = (colorB>>16) & 0xff;
+	uint8_t GB = (colorB>>8 ) & 0xff;
+	uint8_t BB = (colorB>>0 ) & 0xff;
+	return Adafruit_NeoPixel::Color(
+	  RA*(1-fraction) + RB*fraction,
+	  GA*(1-fraction) + GB*fraction,
+	  BA*(1-fraction) + BB*fraction );
 }

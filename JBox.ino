@@ -5,7 +5,7 @@
 
 #define VERSION "Rock the Bike Junction Box 1.0"
 
-#define ENABLE_PROTECT 0
+#define ENABLE_PROTECT 1
 #define ENABLE_INDICATORS 1
 #define ENABLE_SENSE 1
 #define DEBUG 1
@@ -36,8 +36,8 @@
 #if ENABLE_PROTECT
 #define PIN_PROTECT 2
 #define PROTECT_INTERVAL 0
-#define PROTECT_CUTOFF 53.0
-#define PROTECT_RECOVER 50.0
+#define PROTECT_CUTOFF 57.0
+#define PROTECT_RECOVER 55.0
 #endif
 
 #if ENABLE_INDICATORS
@@ -153,9 +153,9 @@ void setup() {
 	}
 #endif
 
-#if ENABLE_PROTECT
+// To avoid a floating voltage that will burn out the transistor, we set the
+// pin to output, even when ENABLE_PROTECT is false.
 	pinMode(PIN_PROTECT, OUTPUT);
-#endif
 
 #if ENABLE_INDICATORS
 	for (int i = 0; i < NUM_AMP_SENSORS; i++) {

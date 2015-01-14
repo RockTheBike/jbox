@@ -45,7 +45,7 @@
 #define NUM_POWER_PIXELS 7  // number LEDs for power
 #define NUM_ENERGY_PIXELS 7  // number LEDs for energy
 #define NUM_PIXELS (NUM_POWER_PIXELS+NUM_ENERGY_PIXELS)  // number LEDs per bike
-#define IND_INTERVAL 500
+#define IND_INTERVAL 100
 #define IND_BLINK_INTERVAL 300
 #define IND_VOLT_LOW -1
 #define IND_VOLT_HIGH 50.0
@@ -234,34 +234,39 @@ void doIndRamp(uint8_t s){
 	unsigned char hue = ledstolight/NUM_POWER_PIXELS * 170.0;
 	uint32_t color = Wheel(strips[s], hue<1?1:hue);
 	static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
-	doOneRamp(s, 0, NUM_POWER_PIXELS, ledstolight, color, dark);
+	doFractionalRamp(s, 0, NUM_POWER_PIXELS, ledstolight, color, dark);
 
 	// the energy LEDs
 	int full_smoothies = energy[s]/ENERGY_PER_SMOOTHIE;
+	 // TODO:  should we use modf ? 
 	float partial_smoothie = energy[s] - full_smoothies * ENERGY_PER_SMOOTHIE;
 	ledstolight = logEnergyRamp(partial_smoothie);
 	if( ledstolight > NUM_ENERGY_PIXELS ) ledstolight=NUM_ENERGY_PIXELS;
 	uint32_t curcolor = ENERGY_COLORS[full_smoothies%NUM_ENERGY_COLORS];
 	uint32_t nextcolor = ENERGY_COLORS[(full_smoothies+1)%NUM_ENERGY_COLORS];
-	// the energy LEDs are upside-down, so subtract ledstolight and swap colors
-	doOneRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS,
-	  NUM_ENERGY_PIXELS-ledstolight, nextcolor, curcolor );
+	doBackwardsFractionalRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS,
+	  ledstolight, nextcolor, curcolor );
 
 	// and show 'em
 	strips[s].show();
 }
 
-void doOneRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, float ledstolight, uint32_t firstColor, uint32_t secondColor){
-	for( int i=0,pixel=offset; i<num_pixels; i++,pixel++ ){
-		uint32_t color =
-		  i<(int)ledstolight ?  // definitely firstColor
-		    firstColor :
-		  i>(int)ledstolight+1 ?  // definitely secondColor
-		    secondColor :
-		  // else mix the two proportionally
-		    weighted_average_of_colors( firstColor, secondColor, ledstolight-(int)ledstolight);
+void doFractionalRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, float ledstolight, uint32_t firstColor, uint32_t secondColor){
+	for( int i=0,pixel=offset; i<=num_pixels; i++,pixel++ ){
+		uint32_t color;
+		if( i<(int)ledstolight )  // definitely firstColor
+		    color = firstColor;
+		else if( i>(int)ledstolight )  // definitely secondColor
+		    color = secondColor;
+		else  // mix the two proportionally
+		    color = weighted_average_of_colors( firstColor, secondColor, ledstolight-(int)ledstolight);
 		strips[s].setPixelColor(pixel, color);
 	}
+}
+
+// useful for the upside-down energy LEDs
+void doBackwardsFractionalRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, float ledstolight, uint32_t firstColor, uint32_t secondColor){
+	doFractionalRamp(s, offset, num_pixels, num_pixels-ledstolight, secondColor, firstColor);
 }
 
 /* About logPowerRamp and logEnergyRamp:  I love closed form solutions:  they
@@ -487,6 +492,9 @@ void doDisplay(){
 void doSerial(int in){
 	// get incoming byte:
 	switch(in){
+	case 'c':
+		doColorRainbow();
+		break;
     case 'a':
       enableAutoDisplay = !enableAutoDisplay;
       break;
@@ -575,9 +583,12 @@ void loop() {
 }
 
 // hacky utility to merge colors
+// fraction=0 => colorA; fraction=1 => colorB; fraction=0.5 => mix
+// TODO:  but something's backward in the code or my brain! 
 // (let's hope Adafruit_NeoPixel doesn't change its encoding of colors)
 uint32_t weighted_average_of_colors( uint32_t colorA, uint32_t colorB,
   float fraction ){
+	// TODO:  weight brightness to look more linear to the human eye
 	uint8_t RA = (colorA>>16) & 0xff;
 	uint8_t GA = (colorA>>8 ) & 0xff;
 	uint8_t BA = (colorA>>0 ) & 0xff;
@@ -585,7 +596,34 @@ uint32_t weighted_average_of_colors( uint32_t colorA, uint32_t colorB,
 	uint8_t GB = (colorB>>8 ) & 0xff;
 	uint8_t BB = (colorB>>0 ) & 0xff;
 	return Adafruit_NeoPixel::Color(
-	  RA*(1-fraction) + RB*fraction,
-	  GA*(1-fraction) + GB*fraction,
-	  BA*(1-fraction) + BB*fraction );
+	  RA*fraction + RB*(1-fraction),
+	  GA*fraction + GB*(1-fraction),
+	  BA*fraction + BB*(1-fraction) );
+}
+
+void doColorRainbow() {
+	Serial.println("doing color rainbox");
+	for (int i = 0; i < NUM_AMP_SENSORS; i++) {
+		strips[i].begin();
+		setStrip(strips[i], 0,0,0);
+		strips[i].show(); // Initialize all pixels to 'off'
+	}
+	delay(2000);
+	for( float ledstolight=0; ledstolight<=7; ledstolight+=0.125/2 ) {
+		Serial.println(ledstolight);
+		static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
+		static const uint32_t red = Adafruit_NeoPixel::Color(255,0,0);
+		static const uint32_t green = Adafruit_NeoPixel::Color(0,255,0);
+		static const uint32_t blue = Adafruit_NeoPixel::Color(0,0,255);
+		for( int s=0; s<NUM_AMP_SENSORS; s++ ) {
+			// green grows and overcomes dark
+			doFractionalRamp(s, 0, NUM_POWER_PIXELS, ledstolight, green, dark);
+			// blue grows and overcomes red
+			doBackwardsFractionalRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS,
+			  ledstolight, blue, red );
+			strips[s].show();
+		}
+		delay(50);
+	}
+	delay(2000);
 }

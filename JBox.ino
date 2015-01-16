@@ -458,6 +458,9 @@ void doSerial(int in){
 	case 'c':
 		doColorRainbow();
 		break;
+	case 's':
+		doPrintScales();
+		break;
     case 'a':
       enableAutoDisplay = !enableAutoDisplay;
       break;
@@ -562,6 +565,30 @@ uint32_t weighted_average_of_colors( uint32_t colorA, uint32_t colorB,
 	  RA*fraction + RB*(1-fraction),
 	  GA*fraction + GB*(1-fraction),
 	  BA*fraction + BB*(1-fraction) );
+}
+
+float unLogPowerRamp( float l ) {
+	return MIN_POWER*exp( log(MAX_POWER/MIN_POWER) * l/NUM_POWER_PIXELS );
+}
+float unLogEnergyRamp( float l ) {
+	return MIN_ENERGY*exp( log(MAX_ENERGY/MIN_ENERGY) * l/NUM_ENERGY_PIXELS );
+}
+void doPrintScales() {
+	Serial.println("Scales to write separating the LEDs");
+	Serial.println("Instantaneous power [Watts]:");
+	for( int i=0; i<=NUM_POWER_PIXELS; i++ ) {
+		Serial.print(unLogPowerRamp(i));
+		Serial.print("W ");
+	}
+	Serial.print("\nAccumulated energy [Watt-hours]:");
+	for( int i=0; i<=NUM_ENERGY_PIXELS; i++ ) {
+		float p=unLogEnergyRamp(i);
+		Serial.print(p);
+		Serial.print("Ws=");
+		Serial.print(p/60/60);
+		Serial.print("Wh ");
+	}
+	Serial.println();
 }
 
 void doColorRainbow() {

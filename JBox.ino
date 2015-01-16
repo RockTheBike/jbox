@@ -1,5 +1,6 @@
 #include "JBox.h"  // must be present
 #include <math.h>
+#include <EEPROM.h>
 
 /// *********** defines
 
@@ -78,6 +79,11 @@ uint32_t ENERGY_COLORS[] = {
   Adafruit_NeoPixel::Color(255,128,0),
   Adafruit_NeoPixel::Color(0,255,255) };
 #define NUM_ENERGY_COLORS (sizeof(ENERGY_COLORS)/sizeof(*ENERGY_COLORS))
+
+#if ENABLE_DIMMING
+#define BRIGHTNESS_EEPROM_ADDRESS 10
+#endif
+
 
 #define STATE_OFF 0
 #define STATE_ON 1
@@ -180,6 +186,11 @@ void setup() {
 // To avoid a floating voltage that will burn out the transistor, we set the
 // pin to output, even when ENABLE_PROTECT is false.
 	pinMode(PIN_PROTECT, OUTPUT);
+
+#if ENABLE_DIMMING
+	brightness = EEPROM.read(BRIGHTNESS_EEPROM_ADDRESS) / 255.0;
+        if(brightness<0.1) brightness=1;  // assume the EEPROM was corrupted
+#endif
 
 #if ENABLE_INDICATORS
 	for (int i = 0; i < NUM_AMP_SENSORS; i++) {
@@ -421,6 +432,7 @@ void readBrightness( int c ){
 	// otherwise ignore
 	Serial.print("Brightness is now ");
 	Serial.print((int)(brightness*100));
+	EEPROM.write( BRIGHTNESS_EEPROM_ADDRESS, brightness*255 );
 	Serial.println("%");
 }
 #endif

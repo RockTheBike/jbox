@@ -8,6 +8,7 @@
 #define ENABLE_PROTECT 1
 #define ENABLE_INDICATORS 1
 #define ENABLE_SENSE 1
+#define ENABLE_DIMMING 1
 #define DEBUG 1
 
 #if ENABLE_INDICATORS
@@ -155,6 +156,10 @@ Adafruit_NeoPixel strips[NUM_AMP_SENSORS] = {
 
 #endif
 
+#if ENABLE_DIMMING
+float brightness = 1.0;
+#endif
+
 
 ////// *********** functions  -  each function is implemented before called, and loop() is at the end, to facilitate using alternative C compilers & IDEs.
 
@@ -204,7 +209,7 @@ uint32_t Wheel(const Adafruit_NeoPixel& strip, byte WheelPos) {
 
 void setStrip(Adafruit_NeoPixel& strip, uint8_t r, uint8_t g, uint8_t b){
 	for (uint16_t i = 0; i < strip.numPixels(); i++) {
-		strip.setPixelColor(i, r, g, b);
+		strip.setPixelColor(i, dim(r), dim(g), dim(b));
 	}
 	strip.show();
 }
@@ -278,7 +283,7 @@ void doFractionalRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, float ledst
 		    color = secondColor;
 		else  // mix the two proportionally
 		    color = weighted_average_of_colors( firstColor, secondColor, ledstolight-(int)ledstolight);
-		strips[s].setPixelColor(pixel, color);
+		strips[s].setPixelColor(pixel, dim(color));
 	}
 }
 
@@ -407,6 +412,18 @@ void doEnergy(){
 
 }
 
+#if ENABLE_DIMMING
+void readBrightness( int c ){
+	if( c=='0' || c=='b' )
+		brightness = 1.0;
+	else if( '1'<=c && c<='9' )
+		brightness = (c-'0')/10.0;
+	// otherwise ignore
+	Serial.print("Brightness is now ");
+	Serial.print((int)(brightness*100));
+	Serial.println("%");
+}
+#endif
 
 void resetEnergy(int input){
 	// if input == -1, reset all
@@ -481,6 +498,11 @@ void doSerial(int in){
 		resetEnergy(-1);
 		break;
 #endif
+#if ENABLE_DIMMING
+	case 'b':
+		readBrightness(Serial.read());
+		break;
+#endif
 	case 'z': // version
 		Serial.println(VERSION);
 		break;
@@ -546,6 +568,25 @@ void loop() {
 		 doSerial(in);
 	}
 
+}
+
+// hacky utilities to dim the LEDs so they don't hurt our eyes
+uint8_t dim(uint8_t c){  // a single color chanel
+#if ENABLE_DIMMING
+	return (uint8_t)(brightness*c);
+#else
+	return c;
+#endif
+}
+uint32_t dim(uint32_t c){  // a full RGB color
+#if ENABLE_DIMMING
+	return Adafruit_NeoPixel::Color(
+	dim( (uint8_t)( (c>>16) & 0xff ) ),
+	dim( (uint8_t)( (c>>8 ) & 0xff ) ),
+	dim( (uint8_t)( (c>>0 ) & 0xff ) ) );
+#else
+	return c;
+#endif
 }
 
 // hacky utility to merge colors

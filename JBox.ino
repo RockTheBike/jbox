@@ -50,14 +50,33 @@
 #define IND_VOLT_LOW -1
 #define IND_VOLT_HIGH 50.0
 
+// scale the logarithmic displays:
+// (we assume a relaxed pedaler produces 60W)
+// barely turning the cranks produces 10W (not much more than noise)
+#define MIN_POWER 10
+// a sprinting athlete should just barely reach the top
+#define MAX_POWER 1000
+
+#ifndef WIMPIFY
+// 15sec of relaxed pedaling should trigger minimally visible glow
+#define MIN_ENERGY (float)(60*15)
+// earn a smoothie with equivalent of a half-hour of relaxed pedaling
+// ie 60W * 0.5hr * 3600s/hr
+#define MAX_ENERGY (float)(60*0.5*3600)
+#else
+// re-tune for testers and other wimps:  earn a smoothie in seconds!
+#define MIN_ENERGY (float)(60*5)
+#define MAX_ENERGY (float)(60*10)
+#endif
+
 uint32_t ENERGY_COLORS[] = {
   Adafruit_NeoPixel::Color(0,0,0),
   Adafruit_NeoPixel::Color(255,0,0),
   Adafruit_NeoPixel::Color(0,255,0),
-  Adafruit_NeoPixel::Color(255,0,255) };
+  Adafruit_NeoPixel::Color(255,0,255),
+  Adafruit_NeoPixel::Color(255,128,0),
+  Adafruit_NeoPixel::Color(0,255,255) };
 #define NUM_ENERGY_COLORS (sizeof(ENERGY_COLORS)/sizeof(*ENERGY_COLORS))
-// a half-hour of relaxed pedaling ie 60W x 30m * 60s/m in watt seconds
-#define ENERGY_PER_SMOOTHIE (60*30*60)
 
 #define STATE_OFF 0
 #define STATE_ON 1
@@ -237,9 +256,8 @@ void doIndRamp(uint8_t s){
 	doFractionalRamp(s, 0, NUM_POWER_PIXELS, ledstolight, color, dark);
 
 	// the energy LEDs
-	int full_smoothies = energy[s]/ENERGY_PER_SMOOTHIE;
-	 // TODO:  should we use modf ? 
-	float partial_smoothie = energy[s] - full_smoothies * ENERGY_PER_SMOOTHIE;
+	int full_smoothies = energy[s]/MAX_ENERGY;
+	float partial_smoothie = energy[s] - full_smoothies * MAX_ENERGY;
 	ledstolight = logEnergyRamp(partial_smoothie);
 	if( ledstolight > NUM_ENERGY_PIXELS ) ledstolight=NUM_ENERGY_PIXELS;
 	uint32_t curcolor = ENERGY_COLORS[full_smoothies%NUM_ENERGY_COLORS];
@@ -269,73 +287,18 @@ void doBackwardsFractionalRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, fl
 	doFractionalRamp(s, offset, num_pixels, num_pixels-ledstolight, secondColor, firstColor);
 }
 
-/* About logPowerRamp and logEnergyRamp:  I love closed form solutions:  they
- * reliably and easily adjust in response to adjusted constants (or to swapping
- * a constant for a variable).  But I don't know how to find a solution for the
- * equation I picked, and I didn't even pick an equation that facilitates
- * twiddling constants (even more so for logEnergyRamp).
- *
- * Maybe I should follow Nio's advice and use splines.  But not yet; let's get
- * this ready to run now.
- */
+// Yay, a closed form solution, and it's even got meaningful parameters!
 
 float logPowerRamp( float p ) {
-	/*
-	We want an equation of the form:  l = A * log(p-B) - C
-	  where l is number of LEDs to light and p is power
-	We want ideal data points:
-	p = 20W   => l = 0LEDs
-	p = 1000W => l = 7LEDs = NUM_POWER_PIXELS
-	p = 100W  => l = 3.5LEDs = NUM_POWER_PIXELS/2
-	Finding a closed form would be nice but is too tough for me...
-	(Can you give me the C expressions?  Or teach me how to find them?)
-
-	So let's just twiddle constants until R draws a nice graph:
-	p<-c(20,1000,100); l<-c(0,7,3.5)
-	logPowerRamp <- function(p) A*log(p-B)-C
-	xmax<-1000; ymax<-8
-	pl<-function() {
-		plot( logPowerRamp, xlim=c(0,xmax), ylim=c(0,ymax) );
-		par(new=TRUE);
-		plot( x=p,y=l, xlim=c(0,xmax), ylim=c(0,ymax) );
-	}
-	A<-1.44; B<-12.5; C<-2.9
-	pl()
-	logPowerRamp(p)  # 0.00146035 7.02905416 3.53915986
-	*/
-	float l = 1.44 * log(p-12.5) - 2.9;
+	float l = log(p/MIN_POWER)*NUM_POWER_PIXELS/log(MAX_POWER/MIN_POWER);
 	return l<0 ? 0 : l;
 }
 
 float logEnergyRamp( float e ) {
-	// e is energy measured in watt secs
-	/*
-	We want an equation of the form:  l = A * log(e-B) - C
-	  where l is number of LEDs to light and e is energy
-	We want ideal data points:
-	e = 0Ws  => l = 0LEDs
-	e = ENERGY_PER_SMOOTHIE Ws => l = 7LEDs = NUM_ENERGY_PIXELS
-	e = 60W*30s  => l = 1LEDs
-	  (give a quick response)
-	Finding a closed form would be nice but is too tough for me...
-	(Can you give me the C expressions?  Or teach me how to find them?)
-
-	So let's just twiddle constants until R draws a nice graph:
-	e<-c(0,60*30*60,60*30); l<-c(0,7,1)
-	logEnergyRamp <- function(e) A*log(e-B)-C
-	xmax<-60*30*60; ymax<-8
-	pl<-function() {
-		plot( logEnergyRamp, xlim=c(0,xmax), ylim=c(0,ymax) );
-		par(new=TRUE);
-		plot( x=e,y=l, xlim=c(0,xmax), ylim=c(0,ymax) );
-	}
-	A<-0.9; B<--300; C<-5  # a reasonable first approximation
-	pl()
-	logEnergyRamp(e)
-	*/
-	float l = 0.9 * log(e+300) - 5;
+	float l = log(e/MIN_ENERGY)*NUM_ENERGY_PIXELS/log(MAX_ENERGY/MIN_ENERGY);
 	return l<0 ? 0 : l;
 }
+
 void doIndicators(){
 
 #if ENABLE_SENSE

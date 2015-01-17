@@ -633,12 +633,14 @@ void doPrintScales() {
 		Serial.print(unLogPowerRamp(i));
 		Serial.print("W ");
 	}
-	Serial.print("\nAccumulated energy [Watt-hours]:");
+	Serial.println("\nAccumulated energy [Watt-seconds], [Watt-hours]:");
 	for( int i=0; i<=NUM_ENERGY_PIXELS; i++ ) {
-		float p=unLogEnergyRamp(i);
-		Serial.print(p);
-		Serial.print("Ws=");
-		Serial.print(p/60/60);
+		Serial.print(unLogEnergyRamp(i));
+		Serial.print("Ws ");
+	}
+	Serial.println();
+	for( int i=0; i<=NUM_ENERGY_PIXELS; i++ ) {
+		Serial.print(unLogEnergyRamp(i)/60/60);
 		Serial.print("Wh ");
 	}
 	Serial.println();

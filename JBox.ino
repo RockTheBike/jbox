@@ -90,7 +90,6 @@ uint32_t ENERGY_COLORS[] = {
 #define STATE_BLINK_LOW 2
 #define STATE_BLINK_HIGH 3
 #define STATE_RAMP 4
-#define STATE_RESET 5
 
 #endif
 
@@ -236,11 +235,6 @@ void doIndBlink(){
 	if(time - lastIndicatorBlinkTime > IND_BLINK_INTERVAL){
 		lastIndicatorBlinkTime = time;
 		indBlinkState = !indBlinkState;
-
-//		Serial.print("ind blink ");
-//		//Serial.print(indState);
-//		//Serial.print(" ");
-//		Serial.println(blinkCount++);
 
 		// turn all pixels off:
 		if(!indBlinkState){
@@ -544,16 +538,6 @@ void loop() {
 		lastDisplay = time;
 		doDisplay();
 	}
-
-//	if (time - lastBlinkTime > 600){
-//		blinkState = !blinkState;
-//		lastBlinkTime=time;
-//	}
-//
-//	if (time - lastFastBlinkTime > 120){
-//		fastBlinkState = !fastBlinkState;
-//		lastFastBlinkTime=time;
-//	}
 
 #if ENABLE_SENSE
 	if(time - lastEnergy > ENERGY_INTERVAL){

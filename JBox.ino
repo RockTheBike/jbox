@@ -48,6 +48,7 @@
 #define NUM_ENERGY_PIXELS 7  // number LEDs for energy
 #define NUM_PIXELS (NUM_POWER_PIXELS+NUM_ENERGY_PIXELS)  // number LEDs per bike
 #define IND_INTERVAL 100
+#define BUTTON_CHECK_INTERVAL 100
 #define IND_BLINK_INTERVAL 300
 #define IND_VOLT_LOW -1
 #define IND_VOLT_HIGH 50.0
@@ -117,6 +118,7 @@ unsigned long lastVolt = 0;
 unsigned long lastDisplay = 0;
 unsigned long lastBlink = 0;
 unsigned long lastEnergy = 0;
+unsigned long lastButtonCheckTime = 0;
 unsigned long lastBlinkTime = 0;
 unsigned long lastFastBlinkTime = 0;
 
@@ -333,6 +335,22 @@ void doIndicators(){
 }
 
 #endif // END ENABLE_INDICATORS
+
+void doButtonCheck() {
+	// Need some time between pinMode and digitalRead for stuff to settle.
+	// Luckily, working on the other pins seems to be enough.
+	for( int s=0; s<NUM_AMP_SENSORS; s++ )
+		pinMode( pinLEDs[s], INPUT_PULLUP );
+	for( int s=0; s<NUM_AMP_SENSORS; s++ )
+		// button closes data line to ground
+		if( ! digitalRead(pinLEDs[s]) ) {
+			resetEnergy( s );
+			Serial.print("resetEnergy for bike ");
+			Serial.println(s);
+		}
+	for( int s=0; s<NUM_AMP_SENSORS; s++ )
+		strips[s].begin();
+}
 
 #if ENABLE_PROTECT
 
@@ -558,6 +576,11 @@ void loop() {
 		doIndicators();
 	}
 #endif
+
+	if(time - lastButtonCheckTime > BUTTON_CHECK_INTERVAL){
+		lastButtonCheckTime = time;
+		doButtonCheck();
+	}
 
 	if (Serial.available() > 0) {
 		 int in = Serial.read();

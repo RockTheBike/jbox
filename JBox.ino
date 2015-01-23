@@ -654,15 +654,13 @@ void doPrintScales() {
 }
 
 void doColorRainbow() {
-	Serial.println("doing color rainbox");
+	Serial.println("doing color rainbow");
 	for (int i = 0; i < NUM_AMP_SENSORS; i++) {
 		strips[i].begin();
 		setStrip(strips[i], 0,0,0);
 		strips[i].show(); // Initialize all pixels to 'off'
 	}
-	delay(2000);
-	for( float ledstolight=0; ledstolight<=7; ledstolight+=0.125/2 ) {
-		Serial.println(ledstolight);
+	for( float ledstolight=0; ledstolight<=7; ledstolight+=0.125 ) {
 		static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
 		static const uint32_t red = Adafruit_NeoPixel::Color(255,0,0);
 		static const uint32_t green = Adafruit_NeoPixel::Color(0,255,0);
@@ -677,5 +675,4 @@ void doColorRainbow() {
 		}
 		delay(50);
 	}
-	delay(2000);
 }

@@ -589,6 +589,7 @@ void loop() {
 
 }
 
+// TODO:  chop this and replace it with Adafruit_NeoPixel::setBrightness
 // hacky utilities to dim the LEDs so they don't hurt our eyes
 uint8_t dim(uint8_t c){  // a single color chanel
 #if ENABLE_DIMMING

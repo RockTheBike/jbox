@@ -107,6 +107,7 @@ int ampsRaw[NUM_AMP_SENSORS] = { 0 };
 float amps[NUM_AMP_SENSORS] = { 0.0 };
 float watts[NUM_AMP_SENSORS] = { 0.0 };
 float energy[NUM_AMP_SENSORS] = { 0.0 };  // watt secs
+unsigned long resetTime[NUM_AMP_SENSORS] = { 0 };  // time since reset
 float totalWatts = 0.0;
 float totalEnergy = 0.0;  // watt hours
 #endif
@@ -201,6 +202,7 @@ void setup() {
 	}
 #endif
 
+        resetEnergy(-1); // reset energy (and resetTime) for all
 }
 
 #if ENABLE_INDICATORS
@@ -454,9 +456,11 @@ void resetEnergy(int input){
 	if(input == -1){
 		for(int i=0; i<NUM_AMP_SENSORS; i--){
 			energy[i] = 0;
+                        resetTime[i] = time;
 		}
 	} else { // otherwise, just reset the one input
 		energy[input] = 0;
+                resetTime[input] = time;
 	}
 }
 #endif

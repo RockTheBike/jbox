@@ -4,8 +4,6 @@
 
 /// *********** defines
 
-#define VERSION "Rock the Bike Junction Box 1.0"
-
 #define ENABLE_PROTECT 1
 #define ENABLE_INDICATORS 1
 #define ENABLE_SENSE 1
@@ -29,8 +27,9 @@
 
 #if ENABLE_SENSE
 #define PIN_VOLTS A0
+#define PIN_VOLTS2 A1 // stolen from PIN_AMPS[1]
 
-#define PIN_AMPS { A4, A1, A3, A2, A5 }
+#define PIN_AMPS { A4, A4, A3, A2, A5 }
 #define OFFSETS { -4, -4, -5, -4, -5 }
 #define NOISYZERO 0.2  // assume any smaller measurement should be 0
 #endif
@@ -102,12 +101,13 @@ int sensorOffset[NUM_AMP_SENSORS] = OFFSETS;
 
 unsigned int voltAdc = 0;
 float volts = 0.0;
+float volts2 = 0.0;
 
 int ampsRaw[NUM_AMP_SENSORS] = { 0 };
 float amps[NUM_AMP_SENSORS] = { 0.0 };
 float watts[NUM_AMP_SENSORS] = { 0.0 };
 float energy[NUM_AMP_SENSORS] = { 0.0 };  // watt secs
-unsigned long resetTime[NUM_AMP_SENSORS] = { 0 };  // time since reset
+unsigned long resetTime2,resetTime3;  // time since reset
 float totalWatts = 0.0;
 float totalEnergy = 0.0;  // watt hours
 #endif
@@ -175,14 +175,10 @@ float brightness = 1.0;
 void setup() {
 
 	Serial.begin(57600);
-	Serial.println(VERSION);
+        Serial.println("Rider 1 Wattage, Rider 1 Energy, Rider 1 Time,  Rider 2 Wattage, Rider 2 Energy, Rider 2 Time");
 
 #if ENABLE_SENSE
 	pinMode(PIN_LED, OUTPUT);
-	pinMode(PIN_VOLTS, INPUT); // voltage ADC
-	for (int i = 0; i < NUM_AMP_SENSORS; i++) {
-		pinMode(pinAmps[i], INPUT);
-	}
 #endif
 
 // To avoid a floating voltage that will burn out the transistor, we set the
@@ -202,7 +198,10 @@ void setup() {
 	}
 #endif
 
-        resetEnergy(-1); // reset energy (and resetTime) for all
+        time = millis();
+        resetTime2 = time;
+        resetTime3 = time;
+        // this prevents boot! resetEnergy(-1); // reset energy (and resetTime) for all
 }
 
 #if ENABLE_INDICATORS
@@ -347,8 +346,8 @@ void doButtonCheck() {
 		// button closes data line to ground
 		if( ! digitalRead(pinLEDs[s]) ) {
 			resetEnergy( s );
-			Serial.print("resetEnergy for bike ");
-			Serial.println(s);
+			// Serial.print("resetEnergy for bike ");
+			// Serial.println(s);
 		}
 	for( int s=0; s<NUM_AMP_SENSORS; s++ )
 		strips[s].begin();
@@ -409,6 +408,11 @@ void doEnergy(){
 		temp = adc2volts((float)voltAdc);
 		volts = averageF(temp, volts);
 	}
+	for(j = 0; j < 3; j++){
+		voltAdc = analogRead(PIN_VOLTS2);
+		temp = adc2volts((float)voltAdc);
+		volts2 = averageF(temp, volts2);
+	}
 
 	float timeDiff = time - lastEnergy;
 	float timeDiffSecs = timeDiff / 1000.0;
@@ -425,7 +429,11 @@ void doEnergy(){
 		if( amps[i] < NOISYZERO ) amps[i] = 0;
 
 		//calc watts and energy
-		watts[i] = volts * amps[i];
+		if (pinAmps[i]==A3) {
+                  watts[i] = volts * amps[i]; // volts only applies to A3 input
+                } else {
+                  watts[i] = volts2 * amps[i]; // all others are on A1 voltage pin
+                }
 		totalWatts += watts[i];
 		float wattsecs = watts[i] * timeDiffSecs;
 		float watthrs = wattsecs / 3600;
@@ -456,87 +464,38 @@ void resetEnergy(int input){
 	if(input == -1){
 		for(int i=0; i<NUM_AMP_SENSORS; i--){
 			energy[i] = 0;
-                        resetTime[i] = time;
+                        resetTime2 = time;
+                        resetTime3 = time;
 		}
 	} else { // otherwise, just reset the one input
 		energy[input] = 0;
-                resetTime[input] = time;
+                if (input == 2) resetTime2 = time;
+                if (input == 3) resetTime3 = time;
 	}
 }
 #endif
 
 
+// Rider 1 Wattage, Rider 1 Energy, Rider 1 Time,  Rider 2 Wattage, Rider 2 Energy, Rider 2 Time
+// 30, 8.9, 240, 25, 20.0, 60
+// 32, 9.0, 241, 23, 20.1, 61
+// 30, 9.1, 242, 30, 20.1, 62
+// ...
 void doDisplay(){
-#if ENABLE_SENSE
-	Serial.print("{VOLTS: ");
-	Serial.print(volts, 2);
-	Serial.print(", RAW: ");
-	Serial.print(voltAdc);
+	Serial.print(watts[3], 0);
+	Serial.print(", ");
+	Serial.print(energy[3], 1);
+	Serial.print(", ");
+	Serial.print((time - resetTime3) / 1000);
+	Serial.print(", ");
 
-	for(int i = 0; i < NUM_AMP_SENSORS; i++){
-		Serial.print(", ");
-		Serial.print(i);
-		Serial.print(":");
-		if(enableRawMode)
-			Serial.print(ampsRaw[i]);
-		else {
-			Serial.print(watts[i], 0);
-			Serial.print(",");
-			Serial.print(energy[i], 0);
-		}
-	}
-	Serial.print(", TOTAL_WATTS: ");
-	Serial.print(totalWatts, 2);
-	Serial.print(", TOTAL_WATTHRS: ");
-	Serial.print(totalEnergy, 2);
-#endif
-#if ENABLE_PROTECT
-	if(isProtected)
-		Serial.print(", PROTECT: ON");
-#endif
-	Serial.println("}");
-}
+	Serial.print(watts[2], 0);
+	Serial.print(", ");
+	Serial.print(energy[2], 1);
+	Serial.print(", ");
+	Serial.println((time - resetTime2) / 1000);
 
-void doSerial(int in){
-	// get incoming byte:
-	switch(in){
-	case 'c':
-		doColorRainbow();
-		break;
-	case 's':
-		doPrintScales();
-		break;
-    case 'a':
-      enableAutoDisplay = !enableAutoDisplay;
-      break;
-	case 'd':
-		doDisplay();
-		break;
-	case 'r':
-		enableRawMode = !enableRawMode;
-		break;
-
-#if ENABLE_PROTECT
-	case 'p':
-		setProtect(!isProtected);
-		break;
-#endif
-#if ENABLE_SENSE
-	case 'x':
-		resetEnergy(-1);
-		break;
-#endif
-#if ENABLE_DIMMING
-	case 'b':
-		readBrightness(Serial.read());
-		break;
-#endif
-	case 'z': // version
-		Serial.println(VERSION);
-		break;
-	default:
-		break;
-	}
+        return;
 }
 
 void doBlink() {
@@ -585,12 +544,6 @@ void loop() {
 		lastButtonCheckTime = time;
 		doButtonCheck();
 	}
-
-	if (Serial.available() > 0) {
-		 int in = Serial.read();
-		 doSerial(in);
-	}
-
 }
 
 // TODO:  chop this and replace it with Adafruit_NeoPixel::setBrightness
@@ -630,54 +583,4 @@ uint32_t weighted_average_of_colors( uint32_t colorA, uint32_t colorB,
 	  RA*fraction + RB*(1-fraction),
 	  GA*fraction + GB*(1-fraction),
 	  BA*fraction + BB*(1-fraction) );
-}
-
-float unLogPowerRamp( float l ) {
-	return MIN_POWER*exp( log(MAX_POWER/MIN_POWER) * l/NUM_POWER_PIXELS );
-}
-float unLogEnergyRamp( float l ) {
-	return MIN_ENERGY*exp( log(MAX_ENERGY/MIN_ENERGY) * l/NUM_ENERGY_PIXELS );
-}
-void doPrintScales() {
-	Serial.println("Scales to write separating the LEDs");
-	Serial.println("Instantaneous power [Watts]:");
-	for( int i=0; i<=NUM_POWER_PIXELS; i++ ) {
-		Serial.print(unLogPowerRamp(i));
-		Serial.print("W ");
-	}
-	Serial.println("\nAccumulated energy [Watt-seconds], [Watt-hours]:");
-	for( int i=0; i<=NUM_ENERGY_PIXELS; i++ ) {
-		Serial.print(unLogEnergyRamp(i));
-		Serial.print("Ws ");
-	}
-	Serial.println();
-	for( int i=0; i<=NUM_ENERGY_PIXELS; i++ ) {
-		Serial.print(unLogEnergyRamp(i)/60/60);
-		Serial.print("Wh ");
-	}
-	Serial.println();
-}
-
-void doColorRainbow() {
-	Serial.println("doing color rainbow");
-	for (int i = 0; i < NUM_AMP_SENSORS; i++) {
-		strips[i].begin();
-		setStrip(strips[i], 0,0,0);
-		strips[i].show(); // Initialize all pixels to 'off'
-	}
-	for( float ledstolight=0; ledstolight<=7; ledstolight+=0.125 ) {
-		static const uint32_t dark = Adafruit_NeoPixel::Color(0,0,0);
-		static const uint32_t red = Adafruit_NeoPixel::Color(255,0,0);
-		static const uint32_t green = Adafruit_NeoPixel::Color(0,255,0);
-		static const uint32_t blue = Adafruit_NeoPixel::Color(0,0,255);
-		for( int s=0; s<NUM_AMP_SENSORS; s++ ) {
-			// green grows and overcomes dark
-			doFractionalRamp(s, 0, NUM_POWER_PIXELS, ledstolight, green, dark);
-			// blue grows and overcomes red
-			doBackwardsFractionalRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS,
-			  ledstolight, blue, red );
-			strips[s].show();
-		}
-		delay(50);
-	}
 }

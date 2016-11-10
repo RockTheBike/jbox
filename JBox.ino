@@ -452,7 +452,7 @@ void readBrightness( int c ){
 void resetEnergy(int input){
 	// if input == -1, reset all
 	if(input == -1){
-		for(int i=0; i<NUM_AMP_SENSORS; i--){
+		for(int i=0; i<NUM_AMP_SENSORS; i++){
 			energy[i] = 0;
 		}
 	} else { // otherwise, just reset the one input

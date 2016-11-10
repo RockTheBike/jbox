@@ -20,7 +20,7 @@
 #define BLINK_INTERVAL 1000
 #define DISPLAY_INTERVAL 1000
 #define ENERGY_INTERVAL 0
-#define NUM_AMP_SENSORS 5
+#define NUM_AMP_SENSORS 2
 #define PIN_LED 13
 #define RESET_ALL_TEAMS_PIN 12 // short to ground to reset all teams
 
@@ -31,8 +31,8 @@
 #if ENABLE_SENSE
 #define PIN_VOLTS A0
 
-#define PIN_AMPS { A4, A1, A3, A2, A5 }
-#define OFFSETS { -4, -4, -5, -4, -5 }
+#define PIN_AMPS { A3, A2 }
+#define OFFSETS { -4, -4 }
 #define NOISYZERO 0.2  // assume any smaller measurement should be 0
 #endif
 
@@ -44,7 +44,7 @@
 #endif
 
 #if ENABLE_INDICATORS
-#define PIN_PIXELS {3, 4, 5, 6, 7}
+#define PIN_PIXELS {3, 4}
 #define NUM_POWER_PIXELS 7  // number LEDs for power
 #define NUM_ENERGY_PIXELS 7  // number LEDs for energy
 #define NUM_PIXELS (NUM_POWER_PIXELS+NUM_ENERGY_PIXELS)  // number LEDs per bike
@@ -154,11 +154,8 @@ uint32_t indColor[NUM_AMP_SENSORS] = {0};
 // NEO_KHZ800 800 KHz bitstream (e.g. High Density LED strip)
 
 Adafruit_NeoPixel strips[NUM_AMP_SENSORS] = {
-		Adafruit_NeoPixel(NUM_PIXELS, 3, NEO_GRB + NEO_KHZ800),
-		Adafruit_NeoPixel(NUM_PIXELS, 4, NEO_GRB + NEO_KHZ800),
-		Adafruit_NeoPixel(NUM_PIXELS, 5, NEO_GRB + NEO_KHZ800),
-		Adafruit_NeoPixel(NUM_PIXELS, 6, NEO_GRB + NEO_KHZ800),
-		Adafruit_NeoPixel(NUM_PIXELS, 7, NEO_GRB + NEO_KHZ800)
+		Adafruit_NeoPixel(NUM_PIXELS, pinLEDs[0], NEO_GRB + NEO_KHZ800),
+		Adafruit_NeoPixel(NUM_PIXELS, pinLEDs[1], NEO_GRB + NEO_KHZ800)
 };
 
 

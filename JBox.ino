@@ -22,6 +22,7 @@
 #define ENERGY_INTERVAL 0
 #define NUM_AMP_SENSORS 5
 #define PIN_LED 13
+#define RESET_ALL_TEAMS_PIN 12 // short to ground to reset all teams
 
 #define VOLTCOEFF 13.179 // correct value for new blue arbduino v2
 #define AMPCOEFF 8.0682 // 583 - 512 = 71; 71 / 8.8 amps = 8.0682
@@ -182,6 +183,7 @@ void setup() {
 	for (int i = 0; i < NUM_AMP_SENSORS; i++) {
 		pinMode(pinAmps[i], INPUT);
 	}
+        digitalWrite(RESET_ALL_TEAMS_PIN,HIGH); // set pull-up resistor for all-team reset button
 #endif
 
 // To avoid a floating voltage that will burn out the transistor, we set the
@@ -350,6 +352,10 @@ void doButtonCheck() {
 		}
 	for( int s=0; s<NUM_AMP_SENSORS; s++ )
 		strips[s].begin();
+        if (! digitalRead(RESET_ALL_TEAMS_PIN)) {
+          resetEnergy( -1 ); // reset all teams
+          Serial.println("resetEnergy for all teams");
+        }
 }
 
 #if ENABLE_PROTECT

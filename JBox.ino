@@ -4,7 +4,7 @@
 
 /// *********** defines
 
-#define VERSION "Rock the Bike Junction Box 1.0"
+#define VERSION "Rock the Bike Junction Box branch:xmastree"
 
 #define ENABLE_PROTECT 1
 #define ENABLE_INDICATORS 1

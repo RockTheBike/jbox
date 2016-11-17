@@ -45,8 +45,8 @@
 
 #if ENABLE_INDICATORS
 #define PIN_PIXELS {3, 4}
-#define NUM_POWER_PIXELS 7  // number LEDs for power
-#define NUM_ENERGY_PIXELS 7  // number LEDs for energy
+#define NUM_POWER_PIXELS 150  // number LEDs for power
+#define NUM_ENERGY_PIXELS 150  // number LEDs for energy
 #define NUM_PIXELS (NUM_POWER_PIXELS+NUM_ENERGY_PIXELS)  // number LEDs per bike
 #define IND_INTERVAL 100
 #define BUTTON_CHECK_INTERVAL 100

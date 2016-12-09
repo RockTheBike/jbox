@@ -86,6 +86,7 @@ uint32_t ENERGY_COLORS[] = { // RED, GREEN, BLUE
 #define BRIGHTNESS_EEPROM_ADDRESS 10
 #endif
 
+byte winMode = 1; // 0 normally, 1 = team 0, 2 = team 1, 3 = team 2...
 
 #define STATE_OFF 0
 #define STATE_ON 1
@@ -279,6 +280,9 @@ void doIndRamp(uint8_t s){
 	doBackwardsFractionalRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS,
 	  ledstolight, nextcolor, curcolor );
 
+        if (winMode - 1 == s) { // if this is the winning team
+          doWinningAnimation(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS);
+        }
 	// and show 'em
 	strips[s].show();
 }
@@ -318,6 +322,19 @@ void doFractionalRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, float ledst
 // useful for the upside-down energy LEDs
 void doBackwardsFractionalRamp(uint8_t s, uint8_t offset, uint8_t num_pixels, float ledstolight, uint32_t firstColor, uint32_t secondColor){
 	doFractionalRamp(s, offset, num_pixels, num_pixels-ledstolight, secondColor, firstColor);
+}
+
+void doWinningAnimation(uint8_t s, uint8_t offset, uint8_t num_pixels){
+  for( int i=0; i<=num_pixels; i++ ) strips[s].setPixelColor(i+offset,strips[s].Color(0,0,0)); // blank pixels by default
+  byte timeStep = (millis() % 1000) / 125; // 0 to 7 depending on time
+  byte stepSize = num_pixels / 8; // how many pixels to light per timeStep
+  for( int i=0; i<=stepSize; i++ ) {
+    byte pixelNum = offset+i+(7-timeStep)*stepSize;
+    byte red = 255 * (i & 1); // alternate between blue and white
+    byte green = red; // red and green alternate in the pattern
+    byte blue = 255; // on for both "blue" and "white"
+    strips[s].setPixelColor(pixelNum,strips[s].Color(red,green,blue));
+  }
 }
 
 // Yay, a closed form solution, and it's even got meaningful parameters!

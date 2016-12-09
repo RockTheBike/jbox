@@ -73,12 +73,12 @@
 #define MAX_ENERGY (float)(60*10)
 #endif
 
-uint32_t ENERGY_COLORS[] = {
-  Adafruit_NeoPixel::Color(0,0,0),
-  Adafruit_NeoPixel::Color(255,0,0),
-  Adafruit_NeoPixel::Color(0,255,0),
-  Adafruit_NeoPixel::Color(255,0,255),
-  Adafruit_NeoPixel::Color(255,128,0),
+uint32_t ENERGY_COLORS[] = { // RED, GREEN, BLUE
+  Adafruit_NeoPixel::Color(0,0,0), // background color
+  Adafruit_NeoPixel::Color(255,0,0), // team 0
+  Adafruit_NeoPixel::Color(0,255,0), // team 1
+  Adafruit_NeoPixel::Color(255,0,255), // team 2
+  Adafruit_NeoPixel::Color(255,128,0), // team 3
   Adafruit_NeoPixel::Color(0,255,255) };
 #define NUM_ENERGY_COLORS (sizeof(ENERGY_COLORS)/sizeof(*ENERGY_COLORS))
 
@@ -267,12 +267,15 @@ void doIndRamp(uint8_t s){
 	doFractionalRamp(s, 0, NUM_POWER_PIXELS, ledstolight, color, dark);
 
 	// the energy LEDs
-	int full_smoothies = energy[s]/MAX_ENERGY;
-	float partial_smoothie = energy[s] - full_smoothies * MAX_ENERGY;
-	ledstolight = logEnergyRamp(partial_smoothie);
+        float energy_level = energy[s];
+        if (energy[s] > MAX_ENERGY) {
+          energy_level = MAX_ENERGY * (millis() % 1000 > 300); // blink if full
+        }
+
+	ledstolight = logEnergyRamp(energy_level);
 	if( ledstolight > NUM_ENERGY_PIXELS ) ledstolight=NUM_ENERGY_PIXELS;
-	uint32_t curcolor = ENERGY_COLORS[full_smoothies%NUM_ENERGY_COLORS];
-	uint32_t nextcolor = ENERGY_COLORS[(full_smoothies+1)%NUM_ENERGY_COLORS];
+	uint32_t curcolor = ENERGY_COLORS[0]; // background color
+	uint32_t nextcolor = ENERGY_COLORS[s+1]; // foreground color
 	doBackwardsFractionalRamp(s, NUM_POWER_PIXELS, NUM_ENERGY_PIXELS,
 	  ledstolight, nextcolor, curcolor );
 

@@ -86,7 +86,7 @@ uint32_t ENERGY_COLORS[] = { // RED, GREEN, BLUE
 #define BRIGHTNESS_EEPROM_ADDRESS 10
 #endif
 
-byte winMode = 1; // 0 normally, 1 = team 0, 2 = team 1, 3 = team 2...
+byte winMode = 0; // 0 normally, 1 = team 0, 2 = team 1, 3 = team 2...
 
 #define STATE_OFF 0
 #define STATE_ON 1
@@ -383,8 +383,8 @@ void doButtonCheck() {
 		// button closes data line to ground
 		if( ! digitalRead(pinLEDs[s]) ) {
 			resetEnergy( s );
-			Serial.print("resetEnergy for bike ");
-			Serial.println(s);
+			// Serial.print("resetEnergy for bike ");
+			// Serial.println(s);
 		}
 	for( int s=0; s<NUM_AMP_SENSORS; s++ )
 		strips[s].begin();
@@ -584,8 +584,37 @@ void doBlink() {
 	digitalWrite(PIN_LED, isBlinking);
 }
 
+int find_text(String needle, String haystack) {
+  int foundpos = -1;
+    for (int i = 0; i <= haystack.length() - needle.length(); i++) {
+      if (haystack.substring(i,needle.length()+i) == needle) {
+        foundpos = i;
+      }
+    }
+  return foundpos;
+}
+
 // The loop function is called in an endless loop
 void loop() {
+  if (Serial.available()) {
+    String sledgeSays = Serial.readString();
+    if (find_text("FAILING 1",sledgeSays) >= 0) {
+      Serial.println("saw FAILING 1, resetting energy for all teams, end winner");
+      resetEnergy(-1);
+      winMode = 0; // there is no winner now
+    } else
+    if (find_text("VICTORY 1",sledgeSays) >= 0) {
+      Serial.println("saw VICTORY 1, winner is ");
+      float mostEnergy = 0; // let's see who won
+      for (int i = 0; i < NUM_AMP_SENSORS; i++) {
+        if (energy[i] > mostEnergy) {
+          mostEnergy = energy[i];
+          winMode = i + 1;
+          Serial.println(winMode);
+        }
+      }
+    }
+  }
 
 	time = millis();
 
@@ -624,10 +653,10 @@ void loop() {
 		doButtonCheck();
 	}
 
-	if (Serial.available() > 0) {
-		 int in = Serial.read();
-		 doSerial(in);
-	}
+	//if (Serial.available() > 0) {
+	//	 int in = Serial.read();
+	//	 doSerial(in);
+	//}
 
 }
 

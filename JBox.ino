@@ -377,7 +377,7 @@ void doIndicators(){
 void doButtonCheck() {
 	// Need some time between pinMode and digitalRead for stuff to settle.
 	// Luckily, working on the other pins seems to be enough.
-	for( int s=0; s<NUM_AMP_SENSORS; s++ )
+	/*for( int s=0; s<NUM_AMP_SENSORS; s++ )
 		pinMode( pinLEDs[s], INPUT_PULLUP );
 	for( int s=0; s<NUM_AMP_SENSORS; s++ )
 		// button closes data line to ground
@@ -387,7 +387,7 @@ void doButtonCheck() {
 			// Serial.println(s);
 		}
 	for( int s=0; s<NUM_AMP_SENSORS; s++ )
-		strips[s].begin();
+		strips[s].begin();*/
         if (! digitalRead(RESET_ALL_TEAMS_PIN)) {
           resetEnergy( -1 ); // reset all teams
           Serial.println("resetEnergy for all teams");

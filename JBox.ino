@@ -390,6 +390,7 @@ void doButtonCheck() {
 		strips[s].begin();*/
         if (! digitalRead(RESET_ALL_TEAMS_PIN)) {
           resetEnergy( -1 ); // reset all teams
+          winMode = 0; // there is no winner now
           Serial.println("resetEnergy for all teams");
         }
 }
